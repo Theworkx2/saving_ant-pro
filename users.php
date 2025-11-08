@@ -229,6 +229,7 @@ unset($u); // Break the reference
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="css/search-styles.css">
     <style>
         :root {
             --primary: #0B5FFF;
@@ -1025,7 +1026,18 @@ unset($u); // Break the reference
         // AI-Powered Search Implementation
         const searchInput = document.getElementById('userSearch');
         const searchSuggestions = document.getElementById('searchSuggestions');
+        const searchHelpIcon = document.querySelector('.search-help i');
+        const searchHelpContent = document.getElementById('searchHelp');
         let searchTimeout;
+
+        // Initialize tooltips
+        searchHelpIcon.addEventListener('mouseenter', () => {
+            searchHelpContent.style.display = 'block';
+        });
+
+        searchHelpIcon.addEventListener('mouseleave', () => {
+            searchHelpContent.style.display = 'none';
+        });
 
         searchInput.addEventListener('input', function(e) {
             clearTimeout(searchTimeout);
@@ -1070,7 +1082,7 @@ unset($u); // Break the reference
             `;
             searchSuggestions.style.display = 'block';
 
-            fetch(`inc/user_search.php?q=${encodeURIComponent(query)}&type=${type}`)
+            fetch(`inc/enhanced_user_search.php?q=${encodeURIComponent(query)}&type=${type}`)
                 .then(response => response.json())
                 .then(data => {
                     if (!data.success) {
@@ -1106,32 +1118,76 @@ unset($u); // Break the reference
 
             const html = users.map(user => {
                 const insights = user.insights.map(insight => 
-                    `<span class="user-insight">${insight}</span>`
+                    `<span class="insight-tag ${insight.type}">${insight.text}</span>`
                 ).join('');
 
-                return `
-                    <div class="suggestion-item" onclick="selectUser(${user.id})">
-                        <div class="suggestion-info">
-                            <div class="suggestion-name">
-                                ${user.full_name}
-                                <span style="color: #6b7a93; font-weight: normal;">(${user.username})</span>
+                // Generate user initials for avatar
+                const initials = user.full_name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2);
+
+                const userCard = `
+                    <div class="user-card">
+                        <div class="user-avatar">${initials}</div>
+                        <div class="user-info">
+                            <div class="user-header">
+                                <span class="user-name">${user.full_name}</span>
+                                <span class="user-username">@${user.username}</span>
                                 ${user.is_active ? 
-                                    '<span class="badge badge-success" style="margin-left: 8px;"><i class="material-icons">check_circle</i>Active</span>' : 
-                                    '<span class="badge badge-danger" style="margin-left: 8px;"><i class="material-icons">cancel</i>Inactive</span>'
+                                    '<span class="badge badge-success"><i class="material-icons">check_circle</i>Active</span>' : 
+                                    '<span class="badge badge-danger"><i class="material-icons">cancel</i>Inactive</span>'
                                 }
                             </div>
-                            <div class="suggestion-details">
-                                <strong>Balance:</strong> RWF ${user.balance} | 
-                                <strong>Transactions:</strong> ${user.transaction_count}
-                                ${user.preferred_payment ? ` | <strong>Preferred:</strong> ${user.preferred_payment}` : ''}
-                                ${insights}
+                            
+                            <div class="user-metrics">
+                                <div class="metric">
+                                    <i class="material-icons">account_balance</i>
+                                    <span class="metric-value">RWF ${user.balance}</span>
+                                </div>
+                                <div class="metric">
+                                    <i class="material-icons">receipt</i>
+                                    <span class="metric-value">${user.transaction_count} transactions</span>
+                                </div>
+                                ${user.preferred_payment ? `
+                                    <div class="metric">
+                                        <i class="material-icons">payments</i>
+                                        <span class="metric-value">${user.preferred_payment}</span>
+                                    </div>
+                                ` : ''}
                             </div>
-                            ${type === 'full-search' && user.avg_deposit ? `
-                                <div class="suggestion-details" style="margin-top: 4px;">
-                                    <strong>Avg. Deposit:</strong> RWF ${user.avg_deposit} | 
-                                    <strong>Avg. Withdrawal:</strong> RWF ${user.avg_withdrawal}
+
+                            ${type === 'full-search' ? `
+                                <div class="analytics-card">
+                                    <div class="analytics-grid">
+                                        <div class="analytics-item">
+                                            <div class="analytics-label">Average Deposit</div>
+                                            <div class="analytics-value">RWF ${user.avg_deposit}</div>
+                                        </div>
+                                        <div class="analytics-item">
+                                            <div class="analytics-label">Average Withdrawal</div>
+                                            <div class="analytics-value">RWF ${user.avg_withdrawal}</div>
+                                        </div>
+                                        ${user.patterns?.activity_trend ? `
+                                            <div class="analytics-item">
+                                                <div class="analytics-label">Activity Trend</div>
+                                                <div class="analytics-value">
+                                                    ${user.patterns.activity_trend.text}
+                                                    <span class="trend-indicator trend-${user.patterns.activity_trend.direction}">
+                                                        <i class="material-icons">trending_${user.patterns.activity_trend.direction}</i>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             ` : ''}
+
+                            <div class="user-insights">
+                                ${insights}
+                            </div>
                         </div>
                         <div class="action-buttons">
                             <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); editUser(${JSON.stringify(user)})" title="Edit user">
@@ -1141,6 +1197,12 @@ unset($u); // Break the reference
                                 <i class="material-icons">receipt_long</i>
                             </button>
                         </div>
+                    </div>
+                `;
+
+                return `
+                    <div class="suggestion-item" onclick="selectUser(${user.id})">
+                        ${userCard}
                     </div>
                 `;
             }).join('');
