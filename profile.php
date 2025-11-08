@@ -147,11 +147,14 @@ try {
         :root {
             --primary: #0B5FFF;
             --dark: #06326B;
-            --bg: #EAF3FF;
+            --bg: #F8FAFF;
             --success: #0d8050;
             --warning: #bf8c0c;
             --danger: #db3737;
-            --card-radius: 12px;
+            --card-radius: 16px;
+            --transition: all 0.3s ease;
+            --section-padding: 32px;
+            --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
         }
         * {
             margin: 0;
@@ -163,6 +166,7 @@ try {
             background: var(--bg);
             color: #0b2240;
             line-height: 1.5;
+            min-height: 100vh;
         }
         .container {
             max-width: 1200px;
@@ -177,18 +181,85 @@ try {
         }
         .profile-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr;
+            grid-template-columns: 350px 1fr;
+            gap: 32px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--section-padding);
+        }
+
+        .profile-sidebar {
+            position: sticky;
+            top: 92px;
+            height: fit-content;
+        }
+
+        .profile-main {
+            display: flex;
+            flex-direction: column;
             gap: 24px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(11,95,255,0.1);
+        }
+
+        .section-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-toggle {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 14px;
+            padding: 8px;
+            border-radius: 6px;
+            transition: var(--transition);
+        }
+
+        .section-toggle:hover {
+            background: rgba(11,95,255,0.05);
+        }
+
+        .section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .section-content.visible {
+            max-height: 1000px;
         }
         .card {
             background: #fff;
             border-radius: var(--card-radius);
             padding: 24px;
-            box-shadow: 0 4px 12px rgba(11,95,255,0.05);
+            box-shadow: var(--card-shadow);
             margin-bottom: 24px;
+            transition: var(--transition);
+        }
+        .card:hover {
+            box-shadow: 0 8px 24px rgba(11,95,255,0.1);
+            transform: translateY(-2px);
         }
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
+            position: relative;
         }
         .form-group label {
             display: block;
@@ -196,51 +267,65 @@ try {
             font-weight: 500;
             color: var(--dark);
             margin-bottom: 8px;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .form-control {
             width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #e6eefb;
-            border-radius: 6px;
+            padding: 12px 16px;
+            border: 2px solid #e6eefb;
+            border-radius: 8px;
             font-size: 14px;
-            transition: border-color 0.2s;
+            transition: var(--transition);
+            background: #fbfcff;
         }
         .form-control:focus {
             outline: none;
             border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(11,95,255,0.1);
         }
         .btn {
-            padding: 10px 16px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
-            transition: opacity 0.2s;
-        }
-        .btn:hover {
-            opacity: 0.9;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
         }
         .btn-primary {
             background: var(--primary);
             color: #fff;
         }
-        .stat-card {
-            background: #fff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 4px rgba(11,95,255,0.05);
-            margin-bottom: 16px;
+        .btn-primary:hover {
+            background: var(--dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(11,95,255,0.2);
         }
         .stat-label {
             font-size: 14px;
             color: #6b7a93;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stat-label i {
+            font-size: 18px;
+            color: var(--primary);
         }
         .stat-value {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 600;
             color: var(--dark);
+            transition: var(--transition);
         }
         .stat-value.positive {
             color: var(--success);
@@ -249,55 +334,314 @@ try {
             color: var(--danger);
         }
         .section-title {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 600;
             color: var(--dark);
-            margin-bottom: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title i {
+            font-size: 24px;
+            color: var(--primary);
         }
         .divider {
-            height: 1px;
-            background: #e6eefb;
-            margin: 24px 0;
+            height: 2px;
+            background: linear-gradient(to right, var(--primary), transparent);
+            margin: 32px 0;
+            border-radius: 2px;
         }
         .avatar-section {
             text-align: center;
-            margin-bottom: 24px;
+            margin-bottom: 32px;
+            padding: 24px;
+            border-radius: 20px;
+            background: linear-gradient(145deg, #fff, #f8faff);
         }
         .avatar {
-            width: 120px;
-            height: 120px;
-            border-radius: 60px;
-            background: var(--primary);
+            width: 140px;
+            height: 140px;
+            border-radius: 70px;
+            background: linear-gradient(145deg, var(--primary), var(--dark));
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 48px;
+            font-size: 56px;
             font-weight: 600;
-            margin: 0 auto 16px;
+            margin: 0 auto 20px;
+            box-shadow: 0 8px 24px rgba(11,95,255,0.2);
+            transition: var(--transition);
+        }
+        .avatar:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 32px rgba(11,95,255,0.3);
         }
         .roles {
             display: flex;
             gap: 8px;
-            margin-top: 8px;
+            margin-top: 12px;
             justify-content: center;
+            flex-wrap: wrap;
         }
         .role-badge {
             background: var(--bg);
             color: var(--primary);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
             font-weight: 500;
+            transition: var(--transition);
+            border: 1px solid rgba(11,95,255,0.2);
         }
+        .role-badge:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 24px;
+            min-height: 100vh;
+            background: var(--bg);
+            transition: var(--transition);
+        }
+
+        /* Toast Enhancements */
+        .toast {
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(11,95,255,0.15);
+        }
+
+        /* Mobile Responsiveness */
+        .quick-stats {
+            margin-top: 24px;
+            display: grid;
+            gap: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 12px;
+            transition: var(--transition);
+        }
+
+        .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--card-shadow);
+            background: white;
+        }
+
+        .stat-item i {
+            font-size: 24px;
+            color: var(--primary);
+            padding: 8px;
+            background: var(--bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(11,95,255,0.1);
+            transition: var(--transition);
+        }
+
+        .stat-item:hover i {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6b7a93;
+            margin-bottom: 4px;
+            font-size: 13px;
+            transition: var(--transition);
+        }
+
+        .requirement.met {
+            color: var(--success);
+        }
+
+        .requirement i {
+            font-size: 16px;
+        }
+
+        .requirement.met i {
+            color: var(--success);
+        }
+
+        .form-feedback {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .form-feedback.success {
+            background: rgba(13,128,80,0.1);
+            color: var(--success);
+        }
+
+        .form-feedback.error {
+            background: rgba(219,55,55,0.1);
+            color: var(--danger);
+        }
+
+        @keyframes slideIn {
+            from { 
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stat-info {
+            flex: 1;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #6b7a93;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .avatar-section h2 {
+            font-size: 20px;
+            margin: 12px 0 8px;
+            color: var(--dark);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .form-full {
+            grid-column: 1 / -1;
+        }
+
+        .password-requirements {
+            font-size: 12px;
+            color: #6b7a93;
+            margin-top: 4px;
+        }
+
+        .password-requirements i {
+            font-size: 14px;
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+
+        .form-footer {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(11,95,255,0.1);
+        }
+
         @media (max-width: 768px) {
             .profile-grid {
                 grid-template-columns: 1fr;
+                padding: 12px;
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
             }
             .container { 
-                padding: 84px 16px 24px; 
+                padding: 76px 12px 20px; 
+            }
+            .card {
+                padding: 20px;
+                margin-bottom: 16px;
+            }
+            .avatar {
+                width: 100px;
+                height: 100px;
+                font-size: 40px;
+            }
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            .stat-value {
+                font-size: 14px;
+            }
+            .section-header h2 {
+                font-size: 18px;
+            }
+            .btn {
+                width: 100%;
+                margin-bottom: 8px;
+            }
+            .form-control {
+                padding: 10px 14px;
+            }
+            .stat-card {
+                padding: 16px;
+            }
+            .divider {
+                margin: 24px 0;
+            }
+            .roles {
+                gap: 6px;
+            }
+            .role-badge {
+                padding: 4px 10px;
+                font-size: 12px;
+            }
+            .profile-sidebar {
+                position: static;
+            }
+            .section-toggle {
+                padding: 4px;
+            }
+            .quick-stats {
+                grid-template-columns: 1fr;
             }
         }
+
+        /* Extra Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stat-card {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        .stat-card:nth-child(1) { animation-delay: 0.1s; }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; }
+        .stat-card:nth-child(3) { animation-delay: 0.3s; }
+        .stat-card:nth-child(4) { animation-delay: 0.4s; }
+        .stat-card:nth-child(5) { animation-delay: 0.5s; }
+        .stat-card:nth-child(6) { animation-delay: 0.6s; }
     </style>
 </head>
 <body>
@@ -314,136 +658,161 @@ try {
         <?php endif; ?>
 
         <div class="profile-grid">
-            <div class="main-content">
-                <div class="card">
-                    <h2 class="section-title">Personal Information</h2>
-                    <form method="POST" class="profile-form">
-                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                        
-                        <div class="form-group">
-                            <label for="name">Full Name</label>
-                            <input type="text" id="name" name="name" class="form-control" 
-                                   value="<?= htmlspecialchars($user['full_name'] ?? '') ?>" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="email">Email Address</label>
-                            <input type="email" id="email" name="email" class="form-control" 
-                                   value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="phone">Phone Number</label>
-                            <input type="tel" id="phone" name="phone" class="form-control" 
-                                   value="<?= htmlspecialchars($user['phone_number'] ?? '') ?>">
-                        </div>
-
-                        <button type="submit" name="update_profile" class="btn btn-primary">
-                            Update Profile
-                        </button>
-                    </form>
-
-                    <div class="divider"></div>
-
-                    <h2 class="section-title">Change Password</h2>
-                    <form method="POST" class="password-form">
-                        <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                        
-                        <div class="form-group">
-                            <label for="current_password">Current Password</label>
-                            <input type="password" id="current_password" name="current_password" 
-                                   class="form-control" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="new_password">New Password</label>
-                            <input type="password" id="new_password" name="new_password" 
-                                   class="form-control" required minlength="8">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="confirm_password">Confirm New Password</label>
-                            <input type="password" id="confirm_password" name="confirm_password" 
-                                   class="form-control" required minlength="8">
-                        </div>
-
-                        <button type="submit" name="change_password" class="btn btn-primary">
-                            Change Password
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="sidebar">
+            <!-- Profile Sidebar -->
+            <div class="profile-sidebar">
                 <div class="card">
                     <div class="avatar-section">
                         <div class="avatar">
                             <?= strtoupper(substr($user['full_name'] ?? '', 0, 1)) ?>
                         </div>
-                        <h3><?= htmlspecialchars($user['full_name'] ?? '') ?></h3>
+                        <h2><?= htmlspecialchars($user['full_name'] ?? '') ?></h2>
                         <div class="roles">
                             <?php if (isset($user['roles']) && is_array($user['roles'])): ?>
                                 <?php foreach ($user['roles'] as $role): ?>
-                                    <span class="role-badge"><?= ucfirst($role) ?></span>
+                                    <span class="role-badge">
+                                        <i class="material-icons"><?= $role === 'admin' ? 'admin_panel_settings' : ($role === 'manager' ? 'manage_accounts' : 'person') ?></i>
+                                        <?= ucfirst($role) ?>
+                                    </span>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </div>
                     </div>
 
-                    <div class="divider"></div>
-
-                    <h3 class="section-title">Account Statistics</h3>
-                    
-                    <div class="stat-card">
-                        <div class="stat-label">Total Transactions</div>
-                        <div class="stat-value">
-                            <?= number_format($stats['total_transactions'] ?? 0) ?>
+                    <!-- Account Statistics Summary -->
+                    <div class="quick-stats">
+                        <div class="stat-item">
+                            <i class="material-icons">receipt_long</i>
+                            <div class="stat-info">
+                                <div class="stat-label">Transactions</div>
+                                <div class="stat-value"><?= number_format($stats['total_transactions'] ?? 0) ?></div>
+                            </div>
                         </div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-label">Total Deposits</div>
-                        <div class="stat-value positive">
-                            RWF <?= number_format($stats['total_deposits'] ?? 0) ?>
-                        </div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-label">Total Withdrawals</div>
-                        <div class="stat-value negative">
-                            RWF <?= number_format($stats['total_withdrawals'] ?? 0) ?>
-                        </div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-label">Account Balance</div>
-                        <div class="stat-value">
-                            RWF <?= number_format(($stats['total_deposits'] ?? 0) - ($stats['total_withdrawals'] ?? 0)) ?>
-                        </div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-label">Preferred Payment Method</div>
-                        <div class="stat-value" style="font-size: 18px;">
-                            <?php if ($preferredPayment): ?>
-                                <img src="images/<?= strtolower($preferredPayment['payment_method']) ?>.png" 
-                                     alt="<?= htmlspecialchars($preferredPayment['payment_method']) ?>"
-                                     style="height: 20px; vertical-align: middle; margin-right: 8px;">
-                                <?= ucfirst($preferredPayment['payment_method']) ?>
-                            <?php else: ?>
-                                No transactions yet
-                            <?php endif; ?>
-                        </div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-label">Account Age</div>
-                        <div class="stat-value" style="font-size: 18px;">
-                            <?= number_format($accountAge['days'] ?? 0) ?> days
+                        <div class="stat-item">
+                            <i class="material-icons">account_balance_wallet</i>
+                            <div class="stat-info">
+                                <div class="stat-label">Balance</div>
+                                <div class="stat-value">RWF <?= number_format(($stats['total_deposits'] ?? 0) - ($stats['total_withdrawals'] ?? 0)) ?></div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Main Content Area -->
+            <div class="profile-main">
+                <!-- Personal Information Section -->
+                <div class="card">
+                    <div class="section-header">
+                        <h2>
+                            <i class="material-icons">person_outline</i>
+                            Personal Information
+                        </h2>
+                        <button type="button" class="section-toggle" onclick="toggleSection('personal-info')">
+                            <i class="material-icons">expand_more</i>
+                            <span>Show</span>
+                        </button>
+                    </div>
+                    
+                    <div id="personal-info" class="section-content">
+                        <form method="POST" class="profile-form">
+                            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="name">
+                                        <i class="material-icons">badge</i>
+                                        Full Name
+                                    </label>
+                                    <input type="text" id="name" name="name" class="form-control" 
+                                           value="<?= htmlspecialchars($user['full_name'] ?? '') ?>" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="email">
+                                        <i class="material-icons">email</i>
+                                        Email Address
+                                    </label>
+                                    <input type="email" id="email" name="email" class="form-control" 
+                                           value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
+                                </div>
+
+                                <div class="form-group form-full">
+                                    <label for="phone">
+                                        <i class="material-icons">phone</i>
+                                        Phone Number
+                                    </label>
+                                    <input type="tel" id="phone" name="phone" class="form-control" 
+                                           value="<?= htmlspecialchars($user['phone_number'] ?? '') ?>"
+                                           placeholder="+250 XXX XXX XXX">
+                                </div>
+
+                                <div class="form-footer form-full">
+                                    <button type="submit" name="update_profile" class="btn btn-primary">
+                                        <i class="material-icons">save</i>
+                                        Update Profile
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                <!-- Password Change Section -->
+                <div class="card">
+                    <div class="section-header">
+                        <h2>
+                            <i class="material-icons">lock</i>
+                            Change Password
+                        </h2>
+                        <button type="button" class="section-toggle" onclick="toggleSection('password-section')">
+                            <i class="material-icons">expand_more</i>
+                            <span>Show</span>
+                        </button>
+                    </div>
+                    
+                    <div id="password-section" class="section-content">
+                        <form method="POST" class="password-form">
+                            <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                            
+                            <div class="form-grid">
+                                <div class="form-group form-full">
+                                    <label for="current_password">
+                                        <i class="material-icons">key</i>
+                                        Current Password
+                                    </label>
+                                    <input type="password" id="current_password" name="current_password" 
+                                           class="form-control" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="new_password">
+                                        <i class="material-icons">vpn_key</i>
+                                        New Password
+                                    </label>
+                                    <input type="password" id="new_password" name="new_password" 
+                                           class="form-control" required minlength="8">
+                                    <div id="password-requirements" class="password-requirements"></div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="confirm_password">
+                                        <i class="material-icons">done_all</i>
+                                        Confirm New Password
+                                    </label>
+                                    <input type="password" id="confirm_password" name="confirm_password" 
+                                           class="form-control" required minlength="8">
+                                </div>
+
+                                <div class="form-footer form-full">
+                                    <button type="submit" name="change_password" class="btn btn-primary">
+                                        <i class="material-icons">lock_reset</i>
+                                        Change Password
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -466,23 +835,91 @@ try {
             
             container.appendChild(toast);
             
-            // Auto remove after 5 seconds
             setTimeout(() => {
                 toast.style.animation = 'slideOut 0.3s ease-out forwards';
                 setTimeout(() => toast.remove(), 300);
             }, 5000);
         }
 
-        // Password confirmation validation
-        document.querySelector('.password-form').addEventListener('submit', function(e) {
-            const newPassword = document.getElementById('new_password').value;
-            const confirmPassword = document.getElementById('confirm_password').value;
+        // Section Toggle Functionality
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const button = section.previousElementSibling.querySelector('.section-toggle');
+            const icon = button.querySelector('.material-icons');
+            const text = button.querySelector('span');
 
-            if (newPassword !== confirmPassword) {
-                e.preventDefault();
-                showToast('warning', 'New passwords do not match.');
+            section.classList.toggle('visible');
+            
+            if (section.classList.contains('visible')) {
+                icon.textContent = 'expand_less';
+                text.textContent = 'Hide';
+                section.style.maxHeight = section.scrollHeight + 'px';
+            } else {
+                icon.textContent = 'expand_more';
+                text.textContent = 'Show';
+                section.style.maxHeight = '0';
             }
+        }
+
+        // Initialize sections
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show personal info section by default
+            toggleSection('personal-info');
+
+            // Password confirmation validation
+            document.querySelector('.password-form').addEventListener('submit', function(e) {
+                const newPassword = document.getElementById('new_password').value;
+                const confirmPassword = document.getElementById('confirm_password').value;
+
+                if (newPassword !== confirmPassword) {
+                    e.preventDefault();
+                    showToast('warning', 'New passwords do not match.');
+                }
+            });
+
+            // Add password requirements validation
+            const newPasswordInput = document.getElementById('new_password');
+            const requirementsList = document.getElementById('password-requirements');
+
+            newPasswordInput.addEventListener('input', function() {
+                const password = this.value;
+                const requirements = [
+                    { regex: /.{8,}/, text: 'At least 8 characters' },
+                    { regex: /[A-Z]/, text: 'One uppercase letter' },
+                    { regex: /[a-z]/, text: 'One lowercase letter' },
+                    { regex: /[0-9]/, text: 'One number' },
+                    { regex: /[^A-Za-z0-9]/, text: 'One special character' }
+                ];
+
+                requirementsList.innerHTML = requirements.map(req => `
+                    <div class="requirement ${req.regex.test(password) ? 'met' : ''}">
+                        <i class="material-icons">${req.regex.test(password) ? 'check_circle' : 'radio_button_unchecked'}</i>
+                        ${req.text}
+                    </div>
+                `).join('');
+            });
         });
+
+        // Show form feedback
+        function showFormFeedback(type, message) {
+            const feedback = document.createElement('div');
+            feedback.className = `form-feedback ${type}`;
+            feedback.innerHTML = `
+                <i class="material-icons">${type === 'success' ? 'check_circle' : 'error'}</i>
+                <span>${message}</span>
+            `;
+            
+            const activeForm = document.activeElement.closest('form');
+            if (activeForm) {
+                const existingFeedback = activeForm.querySelector('.form-feedback');
+                if (existingFeedback) {
+                    existingFeedback.remove();
+                }
+                activeForm.appendChild(feedback);
+                
+                setTimeout(() => feedback.remove(), 3000);
+            }
+        }
     </script>
 </body>
 </html>

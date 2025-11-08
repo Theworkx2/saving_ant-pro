@@ -20,18 +20,18 @@ $paymentMethod = filter_input(INPUT_GET, 'payment_method');
 try {
     $pdo = $auth->getPdo();
     
-    // Total transactions summary
+    // Total transactions summary for all users (admin/manager view)
     $stmt = $pdo->prepare("
         SELECT 
             COUNT(*) as total_count,
             SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END) as total_deposits,
             SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END) as total_withdrawals
         FROM transactions 
-        WHERE user_id = ? AND created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
+        WHERE created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
         " . ($paymentMethod ? "AND payment_method = ?" : "")
     );
     
-    $params = [$user['id'], $startDate, $endDate];
+    $params = [$startDate, $endDate];
     if ($paymentMethod) {
         $params[] = $paymentMethod;
     }
@@ -39,31 +39,33 @@ try {
     $stmt->execute($params);
     $summary = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Payment methods breakdown
+    // Payment methods breakdown for all users
     $stmt = $pdo->prepare("
         SELECT 
             payment_method,
             COUNT(*) as transaction_count,
             SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END) as total_deposits,
-            SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END) as total_withdrawals
+            SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END) as total_withdrawals,
+            COUNT(DISTINCT user_id) as unique_users
         FROM transactions 
-        WHERE user_id = ? AND created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
+        WHERE created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
         GROUP BY payment_method
         ORDER BY transaction_count DESC
     ");
     
-    $stmt->execute([$user['id'], $startDate, $endDate]);
+    $stmt->execute([$startDate, $endDate]);
     $paymentMethodStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Daily transactions
+    // Daily transactions for all users
     $stmt = $pdo->prepare("
         SELECT 
             DATE(created_at) as date,
             SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END) as daily_deposits,
             SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END) as daily_withdrawals,
-            COUNT(*) as transaction_count
+            COUNT(*) as transaction_count,
+            COUNT(DISTINCT user_id) as unique_users
         FROM transactions 
-        WHERE user_id = ? AND created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
+        WHERE created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
         " . ($paymentMethod ? "AND payment_method = ?" : "") . "
         GROUP BY DATE(created_at)
         ORDER BY date DESC
@@ -300,6 +302,7 @@ try {
                     <thead>
                         <tr>
                             <th>Payment Method</th>
+                            <th>Users</th>
                             <th>Transactions</th>
                             <th>Total Deposits</th>
                             <th>Total Withdrawals</th>
@@ -323,6 +326,7 @@ try {
                                          style="height: 20px; vertical-align: middle; margin-right: 8px;">
                                     <?= ucfirst(htmlspecialchars($stat['payment_method'])) ?>
                                 </td>
+                                <td><?= number_format($stat['unique_users']) ?></td>
                                 <td><?= number_format($stat['transaction_count']) ?></td>
                                 <td class="positive">RWF <?= number_format($stat['total_deposits']) ?></td>
                                 <td class="negative">RWF <?= number_format($stat['total_withdrawals']) ?></td>
@@ -344,6 +348,7 @@ try {
                     <thead>
                         <tr>
                             <th>Date</th>
+                            <th>Active Users</th>
                             <th>Transactions</th>
                             <th>Deposits</th>
                             <th>Withdrawals</th>
@@ -354,6 +359,7 @@ try {
                         <?php foreach ($dailyStats as $day): ?>
                             <tr>
                                 <td><?= date('Y-m-d', strtotime($day['date'])) ?></td>
+                                <td><?= number_format($day['unique_users']) ?></td>
                                 <td><?= number_format($day['transaction_count']) ?></td>
                                 <td class="positive">RWF <?= number_format($day['daily_deposits']) ?></td>
                                 <td class="negative">RWF <?= number_format($day['daily_withdrawals']) ?></td>

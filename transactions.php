@@ -12,16 +12,25 @@ $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $perPage = 10;
 $offset = ($page - 1) * $perPage;
 
-// Get transactions for the current user
+// Check if admin is viewing a specific user's transactions
+$viewUserId = isset($_GET['user_id']) && $auth->hasRole('admin') ? intval($_GET['user_id']) : $user['id'];
+
+// Get transactions for the current user or selected user if admin
 $transactions = getTransactions([
-    'user_id' => $user['id'],
+    'user_id' => $viewUserId,
     'limit' => $perPage,
     'offset' => $offset
 ]);
 
 // Get total number of transactions for pagination
-$totalTransactions = getTransactionCount($user['id']);
+$totalTransactions = getTransactionCount($viewUserId);
 $totalPages = ceil($totalTransactions / $perPage);
+
+// Get all users for admin selector
+$allUsers = [];
+if ($auth->hasRole('admin')) {
+    $allUsers = $auth->getAllUsers();
+}
 
 // Handle new transaction submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_transaction'])) {
@@ -34,6 +43,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_transaction'])
     $type = filter_input(INPUT_POST, 'type', FILTER_SANITIZE_STRING);
     $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_STRING);
     $paymentMethod = filter_input(INPUT_POST, 'payment_method', FILTER_SANITIZE_STRING);
+    $transactionDate = filter_input(INPUT_POST, 'transaction_date', FILTER_SANITIZE_STRING);
+
+    // Validate and format the transaction date
+    $dateTime = new DateTime($transactionDate);
+    $formattedDate = $dateTime->format('Y-m-d H:i:s');
 
     if ($amount && $type) {
         $result = createTransaction([
@@ -41,7 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_transaction'])
             'type' => $type,
             'amount' => $amount,
             'description' => $description,
-            'payment_method' => $paymentMethod
+            'payment_method' => $paymentMethod,
+            'created_at' => $formattedDate
         ]);
 
         setFlash($result['success'] ? 'success' : 'warning', $result['message']);
@@ -51,8 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_transaction'])
     }
 }
 
-// Get current balance
-$currentBalance = getUserBalance($user['id']);
+// Get current balance for viewed user
+$currentBalance = getUserBalance($viewUserId);
+
+// Get user details if admin is viewing another user
+$viewedUser = $viewUserId !== $user['id'] ? $auth->getUserById($viewUserId) : $user;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -87,11 +105,13 @@ $currentBalance = getUserBalance($user['id']);
             background: var(--bg);
             color: #0b2240;
             line-height: 1.5;
+            min-height: 100vh;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 92px 24px 40px;
+        .main-content {
+            margin-left: 250px;
+            padding: 24px;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
         }
         .page-title {
             font-size: 24px;
@@ -105,20 +125,44 @@ $currentBalance = getUserBalance($user['id']);
             padding: 24px;
             box-shadow: 0 4px 12px rgba(11,95,255,0.05);
             margin-bottom: 24px;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            box-shadow: 0 8px 24px rgba(11,95,255,0.1);
+        }
+        .page-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .page-title i {
+            font-size: 28px;
+            color: var(--primary);
         }
         .balance-card {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: linear-gradient(145deg, var(--primary), var(--dark));
+            color: white;
         }
         .balance-amount {
             font-size: 32px;
             font-weight: 600;
-            color: var(--dark);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .balance-amount i {
+            font-size: 32px;
+            opacity: 0.9;
         }
         .balance-label {
             font-size: 14px;
-            color: #6b7a93;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 8px;
         }
         .transaction-form {
             display: grid;
@@ -148,20 +192,31 @@ $currentBalance = getUserBalance($user['id']);
             border-color: var(--primary);
         }
         .btn {
-            padding: 10px 16px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
         }
         .btn:hover {
-            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(11,95,255,0.2);
+        }
+        .btn i {
+            font-size: 18px;
         }
         .btn-primary {
             background: var(--primary);
             color: #fff;
+        }
+        .btn-primary:hover {
+            background: var(--dark);
         }
         .transactions-table {
             width: 100%;
@@ -269,9 +324,73 @@ $currentBalance = getUserBalance($user['id']);
             .transaction-form {
                 grid-template-columns: 1fr;
             }
-            .navbar { padding: 12px 16px; }
-            .container { padding: 84px 16px 24px; }
-            .balance-amount { font-size: 24px; }
+            .navbar { 
+                padding: 12px 16px; 
+            }
+            .container { 
+                padding: 84px 12px 24px; 
+            }
+            .balance-amount { 
+                font-size: 24px; 
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+            }
+            .card {
+                padding: 16px;
+            }
+            .transactions-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            .transactions-table th,
+            .transactions-table td {
+                padding: 8px;
+                font-size: 13px;
+            }
+            .transaction-amount {
+                font-size: 13px;
+            }
+            .modal-content {
+                width: 95%;
+                margin: 20px auto;
+                padding: 16px;
+            }
+            .form-group {
+                margin-bottom: 12px;
+            }
+            .btn {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+            .balance-card {
+                flex-direction: column;
+                gap: 16px;
+                align-items: flex-start;
+            }
+            .balance-card .btn {
+                width: 100%;
+            }
+            .payment-icon img {
+                height: 25px;
+            }
+            .pagination {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .pagination a {
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+            .bulk-actions {
+                margin-bottom: 12px;
+            }
+            #deleteSelectedBtn {
+                width: 100%;
+                margin-bottom: 8px;
+            }
         }
         .payment-icon {
             display: flex;
@@ -279,6 +398,28 @@ $currentBalance = getUserBalance($user['id']);
         }
         .payment-icon img {
             transition: all 0.3s ease;
+        }
+        
+        /* User selector styles */
+        #userSelector {
+            background: white;
+            border: 1px solid #e6eefb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--dark);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        #userSelector:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(11,95,255,0.1);
+        }
+        
+        #userSelector option {
+            padding: 8px;
         }
     </style>
     <script>
@@ -328,14 +469,39 @@ $currentBalance = getUserBalance($user['id']);
             </script>
         <?php endif; ?>
 
-        <h1 class="page-title">Transactions</h1>
+        <h1 class="page-title">
+            <i class="material-icons">receipt_long</i>
+            Transactions
+            <?php if ($auth->hasRole('admin')): ?>
+            <select id="userSelector" class="form-control" style="margin-left: 20px; width: 200px;" onchange="window.location.href='?user_id=' + this.value">
+                <option value="<?= $user['id'] ?>" <?= $viewUserId == $user['id'] ? 'selected' : '' ?>>My Transactions</option>
+                <?php foreach ($allUsers as $u): ?>
+                    <?php if ($u['id'] !== $user['id']): ?>
+                    <option value="<?= $u['id'] ?>" <?= $viewUserId == $u['id'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($u['full_name']) ?> (<?= $u['username'] ?>)
+                    </option>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </select>
+            <?php endif; ?>
+        </h1>
 
         <div class="card balance-card">
             <div>
-                <div class="balance-label">Current Balance</div>
-                <div class="balance-amount">RWF <?= number_format($currentBalance, 0) ?></div>
+                <div class="balance-label">
+                    <?php if ($viewUserId !== $user['id']): ?>
+                        Balance for <?= htmlspecialchars($viewedUser['full_name']) ?>
+                    <?php else: ?>
+                        Current Balance
+                    <?php endif; ?>
+                </div>
+                <div class="balance-amount">
+                    <i class="material-icons">account_balance_wallet</i>
+                    RWF <?= number_format($currentBalance, 0) ?>
+                </div>
             </div>
             <button class="btn btn-primary" onclick="document.getElementById('newTransactionForm').style.display='block'">
+                <i class="material-icons">add_circle</i>
                 New Transaction
             </button>
         </div>
@@ -371,13 +537,39 @@ $currentBalance = getUserBalance($user['id']);
                 </div>
 
                 <div class="form-group">
+                    <label for="transaction_date">
+                        <i class="material-icons">calendar_today</i>
+                        Date
+                    </label>
+                    <input type="datetime-local" name="transaction_date" id="transaction_date" 
+                           class="form-control" required>
+                </div>
+
+                <div class="form-group">
                     <label for="description">Description</label>
                     <input type="text" name="description" id="description" class="form-control" required>
                 </div>
 
                 <div class="form-group" style="grid-column: span 2;">
-                    <button type="submit" name="submit_transaction" class="btn btn-primary">Submit Transaction</button>
+                    <button type="submit" name="submit_transaction" class="btn btn-primary">
+                        <i class="material-icons">save</i>
+                        Submit Transaction
+                    </button>
                 </div>
+
+                <script>
+                    // Set default date to current date and time
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const month = String(now.getMonth() + 1).padStart(2, '0');
+                        const day = String(now.getDate()).padStart(2, '0');
+                        const hours = String(now.getHours()).padStart(2, '0');
+                        const minutes = String(now.getMinutes()).padStart(2, '0');
+                        const defaultDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+                        document.getElementById('transaction_date').value = defaultDate;
+                    });
+                </script>
             </form>
         </div>
 
@@ -452,7 +644,7 @@ $currentBalance = getUserBalance($user['id']);
                                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="transaction_id" value="<?= $transaction['id'] ?>">
-                                    <button type="submit" class="btn-action delete" onclick="return confirm('Are you sure you want to delete this transaction?')">
+                                    <button type="button" class="btn-action delete" onclick="confirmSingleDelete(this.form, <?= $transaction['id'] ?>)">
                                         Delete
                                     </button>
                                 </form>
@@ -716,6 +908,27 @@ $currentBalance = getUserBalance($user['id']);
             if (event.target == modal) {
                 modal.style.display = 'none';
             }
+        }
+
+        // Function to confirm and handle single transaction delete
+        function confirmSingleDelete(form, transactionId) {
+            Swal.fire({
+                title: 'Delete Transaction',
+                text: 'Are you sure you want to delete this transaction? This action cannot be undone.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#db3737',
+                cancelButtonColor: '#6b7a93',
+                confirmButtonText: 'Yes, delete it!',
+                cancelButtonText: 'Cancel',
+                showLoaderOnConfirm: true,
+                preConfirm: () => {
+                    return new Promise((resolve) => {
+                        form.submit();
+                        resolve();
+                    });
+                }
+            });
         }
 
         // Initialize tooltips and event listeners

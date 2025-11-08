@@ -220,3 +220,52 @@ function requireRole(string $role): void {
 function hasRole($user, string $role): bool {
     return is_array($user['roles']) && in_array($role, $user['roles']);
 }
+
+// Convert timestamp to "time ago" format
+function getTimeAgo(int $timestamp): string {
+    $current_time = time();
+    $time_difference = $current_time - $timestamp;
+    
+    $intervals = array(
+        31536000 => 'year',
+        2592000 => 'month',
+        604800 => 'week',
+        86400 => 'day',
+        3600 => 'hour',
+        60 => 'minute',
+        1 => 'second'
+    );
+    
+    if ($time_difference < 5) {
+        return 'Just now';
+    }
+    
+    if ($time_difference < 86400) {
+        if ($time_difference < 60) {
+            return 'Just now';
+        } elseif ($time_difference < 3600) {
+            $minutes = floor($time_difference / 60);
+            return $minutes . ' minute' . ($minutes > 1 ? 's' : '') . ' ago';
+        } else {
+            $hours = floor($time_difference / 3600);
+            return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+        }
+    }
+    
+    if ($time_difference < 172800) { // Less than 2 days
+        return 'Yesterday';
+    }
+    
+    foreach ($intervals as $seconds => $label) {
+        $interval = floor($time_difference / $seconds);
+        if ($interval > 0) {
+            if ($interval == 1) {
+                return $interval . ' ' . $label . ' ago';
+            } else {
+                return $interval . ' ' . $label . 's ago';
+            }
+        }
+    }
+    
+    return date('M j, Y', $timestamp);
+}

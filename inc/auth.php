@@ -138,6 +138,27 @@ class Auth {
         return $this->user;
     }
 
+    // Get user by ID
+    public function getUserById(int $userId): ?array {
+        $stmt = $this->db->prepare("
+            SELECT u.*, GROUP_CONCAT(r.name) as roles 
+            FROM users u 
+            LEFT JOIN user_roles ur ON u.id = ur.user_id 
+            LEFT JOIN roles r ON ur.role_id = r.id 
+            WHERE u.id = ?
+            GROUP BY u.id
+        ");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        if ($user) {
+            $user['roles'] = $user['roles'] ? explode(',', $user['roles']) : [];
+            return $user;
+        }
+        
+        return null;
+    }
+
     // Input validation
     private function validateRegistration(array $data): array {
         $errors = [];
@@ -197,10 +218,18 @@ class Auth {
             // Validate input
             $errors = $this->validateRegistration($data);
             if (!empty($errors)) {
-                return ['success' => false, 'errors' => $errors];
+                return ['success' => false, 'errors' => $errors, 'message' => 'Validation failed'];
             }
 
             $this->db->beginTransaction();
+
+            // Check for duplicate username or email before inserting
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE username = ? OR email = ?");
+            $stmt->execute([$data['username'], $data['email']]);
+            if ($stmt->fetchColumn() > 0) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => 'Username or email already exists'];
+            }
 
             // Insert user
             $stmt = $this->db->prepare("
@@ -215,20 +244,29 @@ class Auth {
             ]);
             $userId = $this->db->lastInsertId();
 
-            // Assign roles
-            if (!empty($data['roles'])) {
-                $stmt = $this->db->prepare("
-                    INSERT INTO user_roles (user_id, role_id)
-                    SELECT ?, id FROM roles WHERE name IN (" . str_repeat('?,', count($data['roles']) - 1) . "?)
-                ");
-                $stmt->execute(array_merge([$userId], $data['roles']));
-            }
+            // Initialize user balance
+            $stmt = $this->db->prepare("INSERT INTO user_balances (user_id, balance) VALUES (?, 0.00)");
+            $stmt->execute([$userId]);
+
+            // Assign default role if none provided
+            $roles = !empty($data['roles']) ? $data['roles'] : ['user'];
+
+            // Get role IDs
+            $placeholders = str_repeat('?,', count($roles) - 1) . '?';
+            $stmt = $this->db->prepare("
+                INSERT INTO user_roles (user_id, role_id)
+                SELECT ?, id FROM roles WHERE name IN ($placeholders)
+            ");
+            $stmt->execute(array_merge([$userId], $roles));
 
             $this->db->commit();
-            return ['success' => true];
+            return ['success' => true, 'message' => 'User created successfully'];
 
         } catch (PDOException $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log('Error creating user: ' . $e->getMessage());
             if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
                 if (strpos($e->getMessage(), 'username') !== false) {
                     return ['success' => false, 'message' => 'Username already taken'];
@@ -237,7 +275,7 @@ class Auth {
                     return ['success' => false, 'message' => 'Email already registered'];
                 }
             }
-            return ['success' => false, 'message' => 'Failed to create user'];
+            return ['success' => false, 'message' => 'Failed to create user: ' . $e->getMessage()];
         }
     }
 
@@ -313,6 +351,34 @@ class Auth {
             return true;
         } catch (PDOException $e) {
             $this->db->rollBack();
+            return false;
+        }
+    }
+
+    // Delete user (admin function)
+    public function deleteUser(int $userId): bool {
+        try {
+            $this->db->beginTransaction();
+
+            // Delete user's roles
+            $stmt = $this->db->prepare("DELETE FROM user_roles WHERE user_id = ?");
+            $stmt->execute([$userId]);
+
+            // Delete user's balance record if exists
+            $stmt = $this->db->prepare("DELETE FROM user_balances WHERE user_id = ?");
+            $stmt->execute([$userId]);
+
+            // Delete the user
+            $stmt = $this->db->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+
+            $this->db->commit();
+            return true;
+        } catch (PDOException $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log('Error deleting user: ' . $e->getMessage());
             return false;
         }
     }

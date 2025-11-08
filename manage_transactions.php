@@ -151,39 +151,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($auth->hasRole('admin')) {
                 $transactionId = filter_input(INPUT_POST, 'transaction_id', FILTER_VALIDATE_INT);
                 
-                if ($transactionId) {
-                    try {
-                        $pdo = $auth->getPdo();
-                        
-                        // Start transaction
-                        $pdo->beginTransaction();
-                        
-                        // Get transaction details
-                        $stmt = $pdo->prepare('SELECT type, amount FROM transactions WHERE id = ? AND user_id = ?');
-                        $stmt->execute([$transactionId, $user['id']]);
-                        $transaction = $stmt->fetch(PDO::FETCH_ASSOC);
-                        
-                        if ($transaction) {
-                            // Update balance
-                            $balanceAdjustment = $transaction['type'] === 'deposit' ? -$transaction['amount'] : $transaction['amount'];
-                            $stmt = $pdo->prepare('UPDATE user_balances SET balance = balance + ? WHERE user_id = ?');
-                            $stmt->execute([$balanceAdjustment, $user['id']]);
-                            
-                            // Delete transaction
-                            $stmt = $pdo->prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?');
-                            $stmt->execute([$transactionId, $user['id']]);
-                            
-                            $pdo->commit();
-                            setFlash('success', 'Transaction deleted successfully.');
-                        } else {
-                            throw new Exception('Transaction not found.');
-                        }
-                    } catch (Exception $e) {
-                        if ($pdo->inTransaction()) {
-                            $pdo->rollBack();
-                        }
-                        setFlash('warning', 'Failed to delete transaction: ' . $e->getMessage());
+                if (!$transactionId) {
+                    setFlash('warning', 'Invalid transaction ID.');
+                    break;
+                }
+
+                try {
+                    $pdo = $auth->getPdo();
+                    
+                    // Start transaction
+                    $pdo->beginTransaction();
+                    
+                    // Get transaction details first
+                    $stmt = $pdo->prepare('SELECT type, amount, user_id FROM transactions WHERE id = ?');
+                    $stmt->execute([$transactionId]);
+                    $transaction = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (!$transaction) {
+                        throw new Exception('Transaction not found.');
                     }
+
+                    // Calculate balance adjustment
+                    $balanceAdjustment = $transaction['type'] === 'deposit' ? -$transaction['amount'] : $transaction['amount'];
+                    
+                    // Delete transaction first
+                    $stmt = $pdo->prepare('DELETE FROM transactions WHERE id = ?');
+                    $stmt->execute([$transactionId]);
+                    
+                    if ($stmt->rowCount() === 0) {
+                        throw new Exception('Failed to delete transaction.');
+                    }
+
+                    // Update user balance
+                    $stmt = $pdo->prepare('UPDATE user_balances SET balance = balance + ? WHERE user_id = ?');
+                    $stmt->execute([$balanceAdjustment, $transaction['user_id']]);
+                    
+                    // Recalculate balances for all subsequent transactions
+                    $stmt = $pdo->prepare('
+                        SELECT id, type, amount 
+                        FROM transactions 
+                        WHERE user_id = ? AND created_at >= (
+                            SELECT created_at FROM transactions WHERE id = ?
+                        )
+                        ORDER BY created_at ASC
+                    ');
+                    $stmt->execute([$transaction['user_id'], $transactionId]);
+                    $subsequentTransactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    $runningBalance = getUserBalance($transaction['user_id']);
+                    foreach ($subsequentTransactions as $trans) {
+                        $runningBalance += $trans['type'] === 'deposit' ? $trans['amount'] : -$trans['amount'];
+                        
+                        // Update the balance for this transaction
+                        $stmt = $pdo->prepare('UPDATE transactions SET balance = ? WHERE id = ?');
+                        $stmt->execute([$runningBalance, $trans['id']]);
+                    }
+                    
+                    $pdo->commit();
+                    setFlash('success', 'Transaction deleted successfully.');
+                } catch (Exception $e) {
+                    if ($pdo && $pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    error_log('Transaction deletion error: ' . $e->getMessage());
+                    setFlash('warning', 'Failed to delete transaction: ' . $e->getMessage());
                 }
             } else {
                 setFlash('warning', 'You do not have permission to delete transactions.');

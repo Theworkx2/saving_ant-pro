@@ -18,11 +18,14 @@ $user = $auth->getUser();
     <style>
         :root {
             --primary: #0B5FFF;
+            --primary-light: #EAF3FF;
             --dark: #06326B;
-            --bg: #EAF3FF;
-            --success: #0d8050;
-            --warning: #bf8c0c;
-            --card-radius: 12px;
+            --bg: #F8F9FA;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --purple: #8B5CF6;
+            --card-radius: 16px;
+            --text-secondary: #64748B;
         }
         * {
             margin: 0;
@@ -93,12 +96,111 @@ $user = $auth->getUser();
         .alert-success { background: rgba(13,128,80,0.1); color: var(--success); }
         .alert-warning { background: rgba(191,140,12,0.1); color: var(--warning); }
 
+        .transactions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .transaction-item {
+            padding: 12px 16px;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .transaction-item:hover {
+            background: var(--bg);
+        }
+
+        .transaction-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .transaction-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            font-size: 16px;
+        }
+
+        .transaction-title {
+            font-weight: 500;
+            color: var(--dark);
+            margin-bottom: 4px;
+        }
+
+        .transaction-date {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: var(--dark);
+        }
+
+        .btn-outline {
+            background: none;
+            border: 1px solid #e6eefb;
+            color: var(--text-secondary);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn i {
+            font-size: 20px;
+        }
+
         @media (max-width: 768px) {
-            .navbar { padding: 12px 16px; }
-            .nav-links { display: none; }
-            .container { padding: 84px 16px 24px; }
-            .page-title { font-size: 20px; }
-            .dashboard-grid { grid-template-columns: 1fr; }
+            .main-content {
+                padding: 16px;
+            }
+            .welcome-card {
+                padding: 24px;
+            }
+            .welcome-card h1 {
+                font-size: 24px;
+            }
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            .quick-actions {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -112,16 +214,23 @@ $user = $auth->getUser();
             </div>
         <?php endif; ?>
 
-        <h1 class="page-title">Dashboard</h1>
+        <div class="welcome-card">
+            <h1>Welcome Back, <?= explode(' ', $user['full_name'])[0] ?>!</h1>
+            <p>Manage your savings efficiently with our new silencies and of PHP Saving App.</p>
+        </div>
 
         <div class="dashboard-grid">
-            <!-- Common card for all users -->
+            <!-- Balance Card -->
             <div class="card">
                 <div class="card-header">
-                    <h3>Your Balance</h3>
+                    <div class="card-icon blue">
+                        <i class="material-icons">account_balance_wallet</i>
+                    </div>
+                    <div>
+                        <div class="stat">RWF <?= number_format(getUserBalance($user['id']), 0) ?></div>
+                        <div class="stat-label">Total Savings</div>
+                    </div>
                 </div>
-                <div class="stat">RWF <?= number_format(getUserBalance($user['id']), 0) ?></div>
-                <div class="stat-label">Current balance</div>
             </div>
 
             <?php if ($auth->hasRole('admin')): ?>
@@ -132,11 +241,14 @@ $user = $auth->getUser();
             ?>
             <div class="card">
                 <div class="card-header">
-                    <h3>System Status</h3>
-                    <span class="badge badge-admin">Admin</span>
+                    <div class="card-icon purple">
+                        <i class="material-icons">groups</i>
+                    </div>
+                    <div>
+                        <div class="stat"><?= number_format($activeUsers) ?></div>
+                        <div class="stat-label">Active Users</div>
+                    </div>
                 </div>
-                <div class="stat"><?= number_format($activeUsers) ?></div>
-                <div class="stat-label">Active users</div>
             </div>
             <?php endif; ?>
 
@@ -152,15 +264,18 @@ $user = $auth->getUser();
             ?>
             <div class="card">
                 <div class="card-header">
-                    <h3>User Overview</h3>
-                    <span class="badge badge-manager">Manager</span>
+                    <div class="card-icon green">
+                        <i class="material-icons">supervisor_account</i>
+                    </div>
+                    <div>
+                        <div class="stat"><?= number_format($activeUsers) ?></div>
+                        <div class="stat-label">Regular Users</div>
+                    </div>
                 </div>
-                <div class="stat"><?= number_format($activeUsers) ?></div>
-                <div class="stat-label">Active regular users</div>
             </div>
             <?php endif; ?>
 
-            <!-- Regular user card -->
+            <!-- Transactions card -->
             <?php
             $startOfMonth = date('Y-m-01 00:00:00');
             $stmt = $auth->getPdo()->prepare('SELECT COUNT(*) FROM transactions WHERE user_id = ? AND created_at >= ?');
@@ -169,24 +284,67 @@ $user = $auth->getUser();
             ?>
             <div class="card">
                 <div class="card-header">
-                    <h3>Recent Activity</h3>
+                    <div class="card-icon green">
+                        <i class="material-icons">sync_alt</i>
+                    </div>
+                    <div>
+                        <div class="stat"><?= number_format($transactionsThisMonth) ?></div>
+                        <div class="stat-label">Pending Transactions</div>
+                    </div>
                 </div>
-                <div class="stat"><?= number_format($transactionsThisMonth) ?></div>
-                <div class="stat-label">Transactions this month</div>
             </div>
         </div>
 
+        <!-- Recent Transactions -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Recent Transactions</h3>
+            </div>
+            <?php
+            $stmt = $auth->getPdo()->prepare('
+                SELECT t.*, u.full_name, u.id as user_id 
+                FROM transactions t 
+                JOIN users u ON t.user_id = u.id 
+                WHERE t.user_id = ? 
+                ORDER BY t.created_at DESC LIMIT 5
+            ');
+            $stmt->execute([$user['id']]);
+            $transactions = $stmt->fetchAll();
+            ?>
+            <div class="transactions-list">
+                <?php foreach ($transactions as $t): ?>
+                    <div class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-avatar">
+                                <?= strtoupper(substr($t['full_name'], 0, 1)) ?>
+                            </div>
+                            <div>
+                                <div class="transaction-title">
+                                    <?= htmlspecialchars($t['type']) ?> - RWF <?= number_format($t['amount'], 0) ?>
+                                </div>
+                                <div class="transaction-date">
+                                    <?= getTimeAgo(strtotime($t['created_at'])) ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        
         <?php if ($auth->hasRole('admin')): ?>
         <div class="card">
             <div class="card-header">
                 <h3>Quick Actions</h3>
             </div>
-            <div style="display:flex;gap:12px;margin-top:12px">
-                <a href="users.php" style="text-decoration:none">
-                    <button class="btn-logout">Manage Users</button>
+            <div class="quick-actions">
+                <a href="users.php" class="btn btn-primary">
+                    <i class="material-icons">group_add</i>
+                    Manage Users
                 </a>
-                <a href="reports.php" style="text-decoration:none">
-                    <button class="btn-logout">View Reports</button>
+                <a href="reports.php" class="btn btn-outline">
+                    <i class="material-icons">analytics</i>
+                    View Reports
                 </a>
             </div>
         </div>

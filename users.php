@@ -31,25 +31,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         switch ($action) {
             case 'add_user':
-                if (empty($_POST['username']) || empty($_POST['email']) || empty($_POST['password']) || empty($_POST['full_name'])) {
-                    throw new Exception('All fields are required');
+                // Validate required fields
+                $requiredFields = ['username', 'email', 'password', 'full_name'];
+                foreach ($requiredFields as $field) {
+                    if (empty($_POST[$field])) {
+                        throw new Exception("The {$field} field is required");
+                    }
                 }
 
+                // Validate email format
+                if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
+                    throw new Exception('Please provide a valid email address');
+                }
+
+                // Validate password length
+                if (strlen($_POST['password']) < 8) {
+                    throw new Exception('Password must be at least 8 characters long');
+                }
+
+                // Create user
                 $result = $auth->createUser([
-                    'username' => $_POST['username'],
-                    'email' => $_POST['email'],
+                    'username' => trim($_POST['username']),
+                    'email' => trim($_POST['email']),
                     'password' => $_POST['password'],
-                    'full_name' => $_POST['full_name'],
-                    'roles' => $_POST['roles'] ?? ['user']
+                    'full_name' => trim($_POST['full_name']),
+                    'roles' => isset($_POST['roles']) && is_array($_POST['roles']) ? $_POST['roles'] : ['user']
                 ]);
                 
                 if (!$result['success']) {
+                    if (isset($result['errors']) && is_array($result['errors'])) {
+                        $errorMessages = [];
+                        foreach ($result['errors'] as $field => $error) {
+                            $errorMessages[] = $error;
+                        }
+                        throw new Exception(implode(', ', $errorMessages));
+                    }
                     throw new Exception($result['message'] ?? 'Failed to create user');
                 }
                 
                 $response = [
                     'success' => true,
-                    'message' => 'User created successfully'
+                    'message' => $result['message'] ?? 'User created successfully'
                 ];
                 break;
 
@@ -100,6 +122,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
                 break;
 
+            case 'delete_user':
+                $userId = filter_var($_POST['user_id'], FILTER_VALIDATE_INT);
+                if (!$userId) {
+                    throw new Exception('Invalid user ID');
+                }
+                
+                if ($userId === $user['id']) {
+                    throw new Exception('You cannot delete your own account');
+                }
+
+                // First check if user has any transactions
+                $pdo = $auth->getPdo();
+                $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE user_id = ?");
+                $stmt->execute([$userId]);
+                $transactionCount = $stmt->fetchColumn();
+
+                if ($transactionCount > 0) {
+                    throw new Exception('Cannot delete user with existing transactions. Deactivate the account instead.');
+                }
+
+                // Delete the user
+                if (!$auth->deleteUser($userId)) {
+                    throw new Exception('Failed to delete user');
+                }
+
+                $response = [
+                    'success' => true,
+                    'message' => 'User deleted successfully'
+                ];
+                break;
+
             case 'toggle_status':
                 $userId = filter_var($_POST['user_id'], FILTER_VALIDATE_INT);
                 if (!$userId) {
@@ -140,6 +193,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get all users with their roles
 $users = $auth->getAllUsers();
+
+// Get balances and transaction counts for each user
+$pdo = $auth->getPdo();
+foreach ($users as &$u) {
+    // Get user balance
+    $balance = getUserBalance($u['id']);
+    $u['balance'] = $balance;
+
+    // Get transaction count
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE user_id = ?");
+    $stmt->execute([$u['id']]);
+    $u['transaction_count'] = $stmt->fetchColumn();
+
+    // Get last transaction date
+    $stmt = $pdo->prepare("
+        SELECT created_at, type, amount 
+        FROM transactions 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT 1
+    ");
+    $stmt->execute([$u['id']]);
+    $lastTransaction = $stmt->fetch();
+    $u['last_transaction'] = $lastTransaction ?: null;
+}
+unset($u); // Break the reference
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -462,6 +541,60 @@ $users = $auth->getAllUsers();
             font-size: 14px;
         }
 
+        /* Balance info styles */
+        .balance-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .balance-amount {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .last-transaction {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #f8faff;
+        }
+
+        .last-transaction.deposit {
+            color: var(--success);
+        }
+
+        .last-transaction.withdrawal {
+            color: var(--danger);
+        }
+
+        .transaction-date {
+            color: #6b7a93;
+            font-size: 11px;
+        }
+
+        .transaction-count {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .transaction-count .count {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        .btn-sm .material-icons {
+            font-size: 16px;
+        }
+
         .action-buttons {
             display: flex;
             gap: 8px;
@@ -476,6 +609,96 @@ $users = $auth->getAllUsers();
         .action-buttons .material-icons {
             font-size: 18px !important;
         }
+
+        /* Search Styles */
+        .search-container {
+            padding: 20px;
+        }
+        .search-wrapper {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .search-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #e6eefb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(11,95,255,0.1);
+            outline: none;
+        }
+        .search-suggestions {
+            display: none;
+            position: absolute;
+            width: calc(100% - 48px);
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(11,95,255,0.1);
+            margin-top: 5px;
+            z-index: 1000;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .suggestion-item {
+            padding: 12px;
+            border-bottom: 1px solid #e6eefb;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+        }
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        .suggestion-item:hover {
+            background: #f8faff;
+        }
+        .suggestion-info {
+            flex: 1;
+        }
+        .suggestion-name {
+            font-weight: 500;
+            color: var(--dark);
+            margin-bottom: 4px;
+        }
+        .suggestion-details {
+            font-size: 12px;
+            color: #6b7a93;
+        }
+        .suggestion-highlight {
+            color: var(--primary);
+            font-weight: 500;
+        }
+        .user-insight {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+            background: rgba(11,95,255,0.1);
+            color: var(--primary);
+        }
+        .search-loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #6b7a93;
+        }
+        .search-loading .material-icons {
+            animation: spin 1s infinite linear;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
         @media (max-width: 768px) {
             .main-content {
                 margin-left: 0;
@@ -489,6 +712,50 @@ $users = $auth->getAllUsers();
                 display: block;
                 overflow-x: auto;
                 white-space: nowrap;
+            }
+            .modal-content {
+                width: 95%;
+                margin: 20px auto;
+                padding: 16px;
+            }
+            .action-buttons {
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+            .action-buttons .btn {
+                flex: 1;
+                min-width: auto;
+                padding: 6px;
+            }
+            .action-buttons .material-icons {
+                font-size: 16px !important;
+            }
+            .role-badge {
+                font-size: 11px;
+                padding: 3px 6px;
+                margin-right: 2px;
+                margin-bottom: 2px;
+            }
+            .badge {
+                font-size: 11px;
+                padding: 3px 6px;
+            }
+            .badge .material-icons {
+                font-size: 12px;
+            }
+            .form-group {
+                margin-bottom: 12px;
+            }
+            .container {
+                padding: 84px 12px 24px;
+            }
+            .card {
+                padding: 16px;
+            }
+            .users-table th,
+            .users-table td {
+                padding: 8px;
+                font-size: 13px;
             }
         }
     </style>
@@ -505,12 +772,41 @@ $users = $auth->getAllUsers();
 
         <h1 class="page-title">User Management</h1>
 
+        <!-- AI-Powered Search -->
+        <div class="search-container card" style="margin-bottom: 20px;">
+            <div class="search-wrapper">
+                <div class="search-input-container" style="flex: 1; position: relative;">
+                    <input type="text" id="userSearch" class="search-input" placeholder="Search users by name, email, role, or transaction patterns...">
+                    <div class="search-help" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #6b7a93; cursor: pointer;">
+                        <i class="material-icons" title="Search Tips">help_outline</i>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="searchBtn" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="material-icons">search</i>
+                    Search
+                </button>
+            </div>
+            <div id="searchSuggestions" class="search-suggestions"></div>
+            <div id="searchHelp" class="search-help-content" style="display: none; margin-top: 15px; padding: 15px; background: #f8faff; border-radius: 8px;">
+                <h4 style="margin-bottom: 10px; color: var(--dark);">Search Tips:</h4>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    <li style="margin-bottom: 8px;"><i class="material-icons" style="vertical-align: middle; color: var(--primary); margin-right: 8px;">person</i> Type name, email, or username</li>
+                    <li style="margin-bottom: 8px;"><i class="material-icons" style="vertical-align: middle; color: var(--primary); margin-right: 8px;">attach_money</i> Search by transaction amount range (e.g., "balance > 500000")</li>
+                    <li style="margin-bottom: 8px;"><i class="material-icons" style="vertical-align: middle; color: var(--primary); margin-right: 8px;">account_balance</i> Find users by payment method (e.g., "momo", "bank")</li>
+                    <li style="margin-bottom: 8px;"><i class="material-icons" style="vertical-align: middle; color: var(--primary); margin-right: 8px;">verified_user</i> Search by role (e.g., "admin", "manager")</li>
+                    <li><i class="material-icons" style="vertical-align: middle; color: var(--primary); margin-right: 8px;">analytics</i> Find by activity (e.g., "active", "inactive")</li>
+                </ul>
+            </div>
+        </div>
+
         <table class="users-table">
             <thead>
                 <tr>
                     <th>User ID</th>
                     <th>Full Name</th>
                     <th>Email</th>
+                    <th>Balance</th>
+                    <th>Total Transactions</th>
                     <th>Roles</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -518,10 +814,30 @@ $users = $auth->getAllUsers();
             </thead>
             <tbody>
                 <?php foreach ($users as $u): ?>
-                <tr>
+                <tr data-user-id="<?= htmlspecialchars($u['id']) ?>">
                     <td><?= htmlspecialchars($u['id']) ?></td>
                     <td><?= htmlspecialchars($u['full_name']) ?></td>
                     <td><?= htmlspecialchars($u['email']) ?></td>
+                    <td>
+                        <div class="balance-info">
+                            <span class="balance-amount">RWF <?= number_format($u['balance'], 0) ?></span>
+                            <?php if ($u['last_transaction']): ?>
+                                <div class="last-transaction <?= $u['last_transaction']['type'] ?>">
+                                    <small>Last: <?= $u['last_transaction']['type'] === 'deposit' ? '+' : '-' ?>RWF <?= number_format($u['last_transaction']['amount'], 0) ?></small>
+                                    <br>
+                                    <small class="transaction-date"><?= date('M j, Y', strtotime($u['last_transaction']['created_at'])) ?></small>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="transaction-count">
+                            <span class="count"><?= number_format($u['transaction_count']) ?></span>
+                            <a href="transactions.php?user_id=<?= $u['id'] ?>" class="btn btn-outline btn-sm" title="View Transactions">
+                                <i class="material-icons">visibility</i>
+                            </a>
+                        </div>
+                    </td>
                     <td>
                         <?php foreach ($u['roles'] as $role): ?>
                             <span class="role-badge role-badge-<?= strtolower($role) ?>">
@@ -550,7 +866,7 @@ $users = $auth->getAllUsers();
                             <button class="btn btn-outline" onclick="editRoles(<?= htmlspecialchars(json_encode($u)) ?>)" title="Manage roles">
                                 <i class="material-icons">manage_accounts</i>
                             </button>
-                            <?php if ($u['id'] !== $user['id']): ?>
+                                <?php if ($u['id'] !== $user['id']): ?>
                                 <?php if ($u['is_active']): ?>
                                     <button class="btn btn-danger" onclick="toggleUserStatus(<?= $u['id'] ?>, 0)" title="Deactivate user">
                                         <i class="material-icons">block</i>
@@ -560,6 +876,9 @@ $users = $auth->getAllUsers();
                                         <i class="material-icons">check_circle</i>
                                     </button>
                                 <?php endif; ?>
+                                <button class="btn btn-danger" onclick="deleteUser(<?= $u['id'] ?>)" title="Delete user">
+                                    <i class="material-icons">delete</i>
+                                </button>
                             <?php endif; ?>
                         </div>
                     </td>
@@ -703,6 +1022,145 @@ $users = $auth->getAllUsers();
     </div>
 
     <script>
+        // AI-Powered Search Implementation
+        const searchInput = document.getElementById('userSearch');
+        const searchSuggestions = document.getElementById('searchSuggestions');
+        let searchTimeout;
+
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            
+            if (query.length < 2) {
+                searchSuggestions.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                searchUsers(query, 'suggestions');
+            }, 300);
+        });
+
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length >= 2) {
+                searchSuggestions.style.display = 'block';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
+                searchSuggestions.style.display = 'none';
+            }
+        });
+
+        document.getElementById('searchBtn').addEventListener('click', function() {
+            const query = searchInput.value.trim();
+            if (query.length >= 2) {
+                searchUsers(query, 'full-search');
+            }
+        });
+
+        function searchUsers(query, type = 'suggestions') {
+            // Show loading state
+            searchSuggestions.innerHTML = `
+                <div class="search-loading">
+                    <i class="material-icons">refresh</i>
+                    Searching...
+                </div>
+            `;
+            searchSuggestions.style.display = 'block';
+
+            fetch(`inc/user_search.php?q=${encodeURIComponent(query)}&type=${type}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.message || 'Search failed');
+                    }
+
+                    displaySearchResults(data.data, type);
+                })
+                .catch(error => {
+                    searchSuggestions.innerHTML = `
+                        <div class="suggestion-item">
+                            <div class="suggestion-info">
+                                <div class="suggestion-name" style="color: var(--danger);">
+                                    Error: ${error.message}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+        }
+
+        function displaySearchResults(users, type) {
+            if (!users.length) {
+                searchSuggestions.innerHTML = `
+                    <div class="suggestion-item">
+                        <div class="suggestion-info">
+                            <div class="suggestion-name">No users found</div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = users.map(user => {
+                const insights = user.insights.map(insight => 
+                    `<span class="user-insight">${insight}</span>`
+                ).join('');
+
+                return `
+                    <div class="suggestion-item" onclick="selectUser(${user.id})">
+                        <div class="suggestion-info">
+                            <div class="suggestion-name">
+                                ${user.full_name}
+                                <span style="color: #6b7a93; font-weight: normal;">(${user.username})</span>
+                                ${user.is_active ? 
+                                    '<span class="badge badge-success" style="margin-left: 8px;"><i class="material-icons">check_circle</i>Active</span>' : 
+                                    '<span class="badge badge-danger" style="margin-left: 8px;"><i class="material-icons">cancel</i>Inactive</span>'
+                                }
+                            </div>
+                            <div class="suggestion-details">
+                                <strong>Balance:</strong> RWF ${user.balance} | 
+                                <strong>Transactions:</strong> ${user.transaction_count}
+                                ${user.preferred_payment ? ` | <strong>Preferred:</strong> ${user.preferred_payment}` : ''}
+                                ${insights}
+                            </div>
+                            ${type === 'full-search' && user.avg_deposit ? `
+                                <div class="suggestion-details" style="margin-top: 4px;">
+                                    <strong>Avg. Deposit:</strong> RWF ${user.avg_deposit} | 
+                                    <strong>Avg. Withdrawal:</strong> RWF ${user.avg_withdrawal}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="action-buttons">
+                            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); editUser(${JSON.stringify(user)})" title="Edit user">
+                                <i class="material-icons">edit</i>
+                            </button>
+                            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); window.location.href='transactions.php?user_id=${user.id}'" title="View transactions">
+                                <i class="material-icons">receipt_long</i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            searchSuggestions.innerHTML = html;
+        }
+
+        function selectUser(userId) {
+            // Scroll to user's row in the table
+            const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
+            if (userRow) {
+                userRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                userRow.style.backgroundColor = '#f0f7ff';
+                setTimeout(() => {
+                    userRow.style.backgroundColor = '';
+                }, 2000);
+            }
+            searchSuggestions.style.display = 'none';
+        }
+
         // Show success or error message using SweetAlert2
         function showMessage(success, message) {
             Swal.fire({
@@ -800,6 +1258,70 @@ $users = $auth->getAllUsers();
             document.getElementById('roleManager').checked = user.roles.includes('manager');
             document.getElementById('roleUser').checked = user.roles.includes('user');
             document.getElementById('editRolesModal').classList.add('show');
+        }
+
+        function deleteUser(userId) {
+            Swal.fire({
+                title: 'Delete User',
+                text: 'Are you sure you want to delete this user? This action cannot be undone!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#db3737',
+                cancelButtonColor: '#6b7a93',
+                confirmButtonText: 'Yes, delete!',
+                cancelButtonText: 'Cancel',
+                footer: 'Note: Users with existing transactions cannot be deleted.',
+                showLoaderOnConfirm: true,
+                allowOutsideClick: () => !Swal.isLoading(),
+                preConfirm: async () => {
+                    try {
+                        const formData = new FormData();
+                        formData.append('action', 'delete_user');
+                        formData.append('csrf_token', '<?= generateCsrfToken() ?>');
+                        formData.append('user_id', userId);
+
+                        const response = await fetch('/saving_ant/users.php', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+
+                        const data = await response.json();
+                        if (!data.success) {
+                            throw new Error(data.message || 'Failed to delete user');
+                        }
+
+                        return data;
+                    } catch (error) {
+                        Swal.showValidationMessage(`Error: ${error.message}`);
+                        throw error;
+                    }
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: result.value.message,
+                        icon: 'success',
+                        timer: 1500
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                }
+            }).catch((error) => {
+                console.error('Delete user error:', error);
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Failed to delete user. Please try again.',
+                    icon: 'error'
+                });
+            });
         }
 
         function toggleUserStatus(userId, status) {
