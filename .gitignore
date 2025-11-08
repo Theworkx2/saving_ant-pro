@@ -24,8 +24,9 @@ composer.lock
 *.sqlite
 *.sql
 
-# Keep setup/database.sql as it's needed for installation
+# Keep specific SQL files
 !setup/database.sql
+!my-db/saving_ant.sql
 
 # Cache and temporary files
 *.tmp
