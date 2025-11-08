@@ -15,15 +15,43 @@ $offset = ($page - 1) * $perPage;
 // Check if admin is viewing a specific user's transactions
 $viewUserId = isset($_GET['user_id']) && $auth->hasRole('admin') ? intval($_GET['user_id']) : $user['id'];
 
-// Get transactions for the current user or selected user if admin
-$transactions = getTransactions([
-    'user_id' => $viewUserId,
-    'limit' => $perPage,
-    'offset' => $offset
-]);
+require_once __DIR__ . '/inc/get_all_transactions.php';
 
-// Get total number of transactions for pagination
-$totalTransactions = getTransactionCount($viewUserId);
+// Initialize filters
+$filters = [];
+if (!$auth->hasRole('admin')) {
+    // Regular users can only see their own transactions
+    $filters['user_id'] = $user['id'];
+} elseif (isset($_GET['user_id'])) {
+    // Admin viewing specific user's transactions
+    $filters['user_id'] = intval($_GET['user_id']);
+}
+
+if (isset($_GET['type']) && in_array($_GET['type'], ['deposit', 'withdrawal'])) {
+    $filters['type'] = $_GET['type'];
+}
+
+if (isset($_GET['payment_method'])) {
+    $filters['payment_method'] = $_GET['payment_method'];
+}
+
+// Get transactions with filters
+if ($auth->hasRole('admin') && empty($filters['user_id'])) {
+    // Admin viewing all transactions
+    $transactions = getAllTransactions([
+        'limit' => $perPage,
+        'offset' => $offset
+    ] + $filters);
+    $totalTransactions = getAllTransactionsCount($filters);
+} else {
+    // Regular user or admin viewing specific user's transactions
+    $transactions = getTransactions([
+        'user_id' => $filters['user_id'] ?? $user['id'],
+        'limit' => $perPage,
+        'offset' => $offset
+    ]);
+    $totalTransactions = getTransactionCount($filters['user_id'] ?? $user['id']);
+}
 $totalPages = ceil($totalTransactions / $perPage);
 
 // Get all users for admin selector
@@ -582,6 +610,29 @@ $viewedUser = $viewUserId !== $user['id'] ? $auth->getUserById($viewUserId) : $u
             </div>
             <?php endif; ?>
 
+            <!-- Filters for admin -->
+            <?php if ($auth->hasRole('admin') && empty($filters['user_id'])): ?>
+            <div class="filters-section" style="margin-bottom: 20px;">
+                <div style="display: flex; gap: 16px; align-items: center;">
+                    <div class="form-group" style="margin: 0;">
+                        <select id="typeFilter" class="form-control" onchange="applyFilters()">
+                            <option value="">All Types</option>
+                            <option value="deposit" <?= isset($_GET['type']) && $_GET['type'] === 'deposit' ? 'selected' : '' ?>>Deposits</option>
+                            <option value="withdrawal" <?= isset($_GET['type']) && $_GET['type'] === 'withdrawal' ? 'selected' : '' ?>>Withdrawals</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <select id="paymentFilter" class="form-control" onchange="applyFilters()">
+                            <option value="">All Payment Methods</option>
+                            <option value="momo" <?= isset($_GET['payment_method']) && $_GET['payment_method'] === 'momo' ? 'selected' : '' ?>>MTN Mobile Money</option>
+                            <option value="airtel" <?= isset($_GET['payment_method']) && $_GET['payment_method'] === 'airtel' ? 'selected' : '' ?>>Airtel Money</option>
+                            <option value="bank" <?= isset($_GET['payment_method']) && $_GET['payment_method'] === 'bank' ? 'selected' : '' ?>>Equity Bank</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <table class="transactions-table">
                 <thead>
                     <tr>
@@ -591,11 +642,17 @@ $viewedUser = $viewUserId !== $user['id'] ? $auth->getUserById($viewUserId) : $u
                         </th>
                         <?php endif; ?>
                         <th>Date</th>
+                        <?php if ($auth->hasRole('admin') && empty($filters['user_id'])): ?>
+                        <th>User</th>
+                        <?php endif; ?>
                         <th>Type</th>
                         <th>Amount</th>
                         <th>Balance</th>
                         <th>Description</th>
                         <th>Payment Method</th>
+                        <?php if ($auth->hasRole('admin')): ?>
+                        <th>Actions</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -607,6 +664,15 @@ $viewedUser = $viewUserId !== $user['id'] ? $auth->getUserById($viewUserId) : $u
                             </td>
                             <?php endif; ?>
                             <td><?= date('Y-m-d H:i', strtotime($transaction['created_at'])) ?></td>
+                            <?php if ($auth->hasRole('admin') && empty($filters['user_id'])): ?>
+                            <td>
+                                <a href="?user_id=<?= $transaction['user_id'] ?>" style="text-decoration: none; color: inherit;">
+                                    <?= htmlspecialchars($transaction['full_name']) ?>
+                                    <br>
+                                    <small style="color: #6b7a93;"><?= htmlspecialchars($transaction['username']) ?></small>
+                                </a>
+                            </td>
+                            <?php endif; ?>
                             <td><?= ucfirst(htmlspecialchars($transaction['type'])) ?></td>
                             <td class="transaction-amount amount-<?= $transaction['type'] ?>">
                                 <?= $transaction['type'] === 'deposit' ? '+' : '-' ?>RWF <?= number_format($transaction['amount'], 0) ?>
@@ -664,8 +730,17 @@ $viewedUser = $viewUserId !== $user['id'] ? $auth->getUserById($viewUserId) : $u
 
             <?php if ($totalPages > 1): ?>
                 <div class="pagination">
-                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <a href="?page=<?= $i ?>" <?= $i === $page ? 'class="active"' : '' ?>>
+                    <?php
+                    // Preserve all current filters in pagination links
+                    $queryParams = $_GET;
+                    unset($queryParams['page']); // Remove page from the base query
+                    $queryString = http_build_query($queryParams);
+                    $baseUrl = '?' . ($queryString ? $queryString . '&' : '');
+                    
+                    for ($i = 1; $i <= $totalPages; $i++):
+                        $url = $baseUrl . 'page=' . $i;
+                    ?>
+                        <a href="<?= $url ?>" <?= $i === $page ? 'class="active"' : '' ?>>
                             <?= $i ?>
                         </a>
                     <?php endfor; ?>
@@ -931,9 +1006,42 @@ $viewedUser = $viewUserId !== $user['id'] ? $auth->getUserById($viewUserId) : $u
             });
         }
 
+        // Filter functionality
+        function applyFilters() {
+            const currentUrl = new URL(window.location.href);
+            const type = document.getElementById('typeFilter').value;
+            const payment = document.getElementById('paymentFilter').value;
+            
+            // Remove existing filter parameters
+            currentUrl.searchParams.delete('type');
+            currentUrl.searchParams.delete('payment_method');
+            
+            // Add new filter parameters if they are selected
+            if (type) currentUrl.searchParams.append('type', type);
+            if (payment) currentUrl.searchParams.append('payment_method', payment);
+            
+            // Keep existing pagination and user_id parameters
+            window.location.href = currentUrl.toString();
+        }
+
+        // Keep filters in sync with URL parameters when using pagination
+        function updateFiltersFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const type = urlParams.get('type');
+            const payment = urlParams.get('payment_method');
+            
+            if (type && document.getElementById('typeFilter')) {
+                document.getElementById('typeFilter').value = type;
+            }
+            if (payment && document.getElementById('paymentFilter')) {
+                document.getElementById('paymentFilter').value = payment;
+            }
+        }
+
         // Initialize tooltips and event listeners
         document.addEventListener('DOMContentLoaded', function() {
             updateBulkActions();
+            updateFiltersFromUrl();
         });
     </script>
 </body>

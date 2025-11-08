@@ -1,80 +1,78 @@
 <?php
+require_once 'functions.php';
 
-function getTransactionStats($userId = null) {
-    global $auth;
-    $pdo = $auth->getPdo();
-    
-    $stats = [];
-    
-    // Total Platform Balance for admins, or user balance for regular users
-    if ($auth->hasRole('admin') && !$userId) {
-        $stmt = $pdo->query('SELECT SUM(balance) as total FROM user_balances');
-        $stats['total_balance'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
-    } else {
-        $stmt = $pdo->prepare('SELECT balance FROM user_balances WHERE user_id = ?');
-        $stmt->execute([$userId ?? $auth->getUserId()]);
-        $stats['total_balance'] = $stmt->fetch(PDO::FETCH_ASSOC)['balance'] ?? 0;
-    }
-    
-    // Active Users Count (for admins)
-    if ($auth->hasRole('admin')) {
-        $stmt = $pdo->query('SELECT COUNT(*) FROM users WHERE is_active = 1');
-        $stats['active_users'] = $stmt->fetchColumn();
-    }
-    
-    // Today's Transactions
-    $today = date('Y-m-d');
-    $sql = 'SELECT 
-                COUNT(*) as total_count,
-                SUM(CASE WHEN type = "deposit" THEN amount ELSE 0 END) as total_deposits,
-                SUM(CASE WHEN type = "withdrawal" THEN amount ELSE 0 END) as total_withdrawals
-            FROM transactions 
-            WHERE DATE(created_at) = ?';
-            
-    if ($userId) {
-        $sql .= ' AND user_id = ?';
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$today, $userId]);
-    } else if (!$auth->hasRole('admin')) {
-        $sql .= ' AND user_id = ?';
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$today, $auth->getUserId()]);
-    } else {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$today]);
-    }
-    
-    $todayStats = $stmt->fetch(PDO::FETCH_ASSOC);
-    $stats['today'] = [
-        'count' => $todayStats['total_count'] ?? 0,
-        'deposits' => $todayStats['total_deposits'] ?? 0,
-        'withdrawals' => $todayStats['total_withdrawals'] ?? 0
-    ];
-    
-    // Recent Transactions
-    $sql = 'SELECT t.*, u.full_name, u.username 
-            FROM transactions t 
-            JOIN users u ON t.user_id = u.id ';
-            
-    if ($userId) {
-        $sql .= ' WHERE t.user_id = ?';
-        $sql .= ' ORDER BY t.created_at DESC LIMIT 5';
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$userId]);
-    } else if (!$auth->hasRole('admin')) {
-        $sql .= ' WHERE t.user_id = ?';
-        $sql .= ' ORDER BY t.created_at DESC LIMIT 5';
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$auth->getUserId()]);
-    } else {
-        $sql .= ' ORDER BY t.created_at DESC LIMIT 5';
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute();
-    }
-    
-    $stats['recent_transactions'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    return $stats;
+// Require admin role
+requireRole('admin');
+
+// Get the number of days from the query parameter
+$days = isset($_GET['days']) ? (int)$_GET['days'] : 30;
+
+// Validate days parameter
+if (!in_array($days, [7, 30, 90])) {
+    $days = 30;
 }
 
-?>
+try {
+    $pdo = $auth->getPdo();
+    
+    // Get transaction data for the specified period
+    $stmt = $pdo->prepare("
+        SELECT 
+            DATE(created_at) as date,
+            type,
+            COUNT(*) as count,
+            SUM(amount) as total
+        FROM transactions 
+        WHERE created_at >= DATE_SUB(CURRENT_DATE, INTERVAL ? DAY)
+        GROUP BY DATE(created_at), type
+        ORDER BY date
+    ");
+    
+    $stmt->execute([$days]);
+    $results = $stmt->fetchAll();
+    
+    // Initialize arrays for chart data
+    $dates = [];
+    $deposits = [];
+    $withdrawals = [];
+    
+    // Create a date range
+    $startDate = new DateTime("-{$days} days");
+    $endDate = new DateTime();
+    $interval = new DateInterval('P1D');
+    $dateRange = new DatePeriod($startDate, $interval, $endDate);
+    
+    // Initialize data arrays with zeros
+    foreach ($dateRange as $date) {
+        $dateStr = $date->format('Y-m-d');
+        $dates[] = $date->format('M j'); // Format for display
+        $depositData[$dateStr] = 0;
+        $withdrawalData[$dateStr] = 0;
+    }
+    
+    // Fill in actual data
+    foreach ($results as $row) {
+        $dateStr = $row['date'];
+        if ($row['type'] === 'deposit') {
+            $depositData[$dateStr] = $row['count'];
+        } else {
+            $withdrawalData[$dateStr] = $row['count'];
+        }
+    }
+    
+    // Convert to arrays for the chart
+    $deposits = array_values($depositData);
+    $withdrawals = array_values($withdrawalData);
+    
+    // Return JSON response
+    header('Content-Type: application/json');
+    echo json_encode([
+        'labels' => $dates,
+        'deposits' => $deposits,
+        'withdrawals' => $withdrawals
+    ]);
+    
+} catch (Exception $e) {
+    header('HTTP/1.1 500 Internal Server Error');
+    echo json_encode(['error' => $e->getMessage()]);
+}
