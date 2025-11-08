@@ -14,6 +14,7 @@ $user = $auth->getUser();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Saving Ant</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         :root {
             --primary: #0B5FFF;
@@ -33,86 +34,6 @@ $user = $auth->getUser();
             background: var(--bg);
             color: #0b2240;
             line-height: 1.5;
-        }
-        .navbar {
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(11,95,255,0.1);
-            padding: 12px 24px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-        }
-        .navbar-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-        .logo {
-            font-weight: 600;
-            font-size: 20px;
-            color: var(--dark);
-        }
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-        }
-        .nav-links a {
-            color: #18314d;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .nav-links a:hover {
-            color: var(--primary);
-        }
-        .user-menu {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .user-info {
-            text-align: right;
-            line-height: 1.3;
-        }
-        .user-name {
-            font-weight: 500;
-            font-size: 14px;
-            color: var(--dark);
-        }
-        .user-role {
-            font-size: 12px;
-            color: #6b7a93;
-        }
-        .btn-logout {
-            padding: 6px 12px;
-            background: none;
-            border: 1px solid #e6eefb;
-            border-radius: 6px;
-            color: #6b7a93;
-            font-size: 13px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        .btn-logout:hover {
-            background: #fbfcff;
-            border-color: #d1e2f9;
-            color: var(--dark);
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 92px 24px 40px;
         }
         .page-title {
             font-size: 24px;
@@ -182,37 +103,9 @@ $user = $auth->getUser();
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="navbar-content">
-            <a href="dashboard.php" class="brand">
-                <span class="logo">Saving Ant</span>
-            </a>
-            
-            <div class="nav-links">
-                <a href="dashboard.php">Dashboard</a>
-                <?php if ($auth->hasRole('admin')): ?>
-                    <a href="users.php">User Management</a>
-                <?php endif; ?>
-                <?php if ($auth->hasRole('admin') || $auth->hasRole('manager')): ?>
-                    <a href="reports.php">Reports</a>
-                <?php endif; ?>
-                <a href="transactions.php">Transactions</a>
-            </div>
+    <?php include_once __DIR__ . '/inc/sidebar.php'; ?>
 
-            <div class="user-menu">
-                <div class="user-info">
-                    <div class="user-name"><?= htmlspecialchars($user['full_name']) ?></div>
-                    <div class="user-role"><?= htmlspecialchars(implode(', ', $user['roles'])) ?></div>
-                </div>
-                <form action="logout.php" method="post" style="display:inline">
-                    <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                    <button type="submit" class="btn-logout">Logout</button>
-                </form>
-            </div>
-        </div>
-    </nav>
-
-    <main class="container">
+    <main class="main-content">
         <?php if ($flash = getFlash()): ?>
             <div class="alert alert-<?= $flash['type'] ?>">
                 <?= htmlspecialchars($flash['message']) ?>

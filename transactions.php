@@ -88,48 +88,6 @@ $currentBalance = getUserBalance($user['id']);
             color: #0b2240;
             line-height: 1.5;
         }
-        .navbar {
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(11,95,255,0.1);
-            padding: 12px 24px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-        }
-        .navbar-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-        .logo {
-            font-weight: 600;
-            font-size: 20px;
-            color: var(--dark);
-        }
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-        }
-        .nav-links a {
-            color: #18314d;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .nav-links a:hover {
-            color: var(--primary);
-        }
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -331,7 +289,7 @@ $currentBalance = getUserBalance($user['id']);
                 name: 'MTN Mobile Money'
             },
             'airtel': {
-                file: 'airtelmoney.jpg',
+                file: 'airtel.png',
                 name: 'Airtel Money'
             },
             'bank': {
@@ -358,26 +316,9 @@ $currentBalance = getUserBalance($user['id']);
     </script>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="navbar-content">
-            <a href="dashboard.php" class="brand">
-                <span class="logo">Saving Ant</span>
-            </a>
-            
-            <div class="nav-links">
-                <a href="dashboard.php">Dashboard</a>
-                <?php if ($auth->hasRole('admin')): ?>
-                    <a href="users.php">User Management</a>
-                <?php endif; ?>
-                <?php if ($auth->hasRole('admin') || $auth->hasRole('manager')): ?>
-                    <a href="reports.php">Reports</a>
-                <?php endif; ?>
-                <a href="transactions.php">Transactions</a>
-            </div>
-        </div>
-    </nav>
+    <?php include_once __DIR__ . '/inc/sidebar.php'; ?>
 
-    <main class="container">
+    <main class="main-content">
         <div id="toastContainer" class="toast-container"></div>
         <?php if ($flash = getFlash()): ?>
             <script>
@@ -488,8 +429,8 @@ $currentBalance = getUserBalance($user['id']);
                                 // Define payment method mappings
                                 $paymentMethods = [
                                     'momo' => ['file' => 'momo.png', 'name' => 'MTN Mobile Money'],
-                                    'airtel' => ['file' => 'airtelmoney.jpg', 'name' => 'Airtel Money'],
-                                    'airtelmoney' => ['file' => 'airtelmoney.jpg', 'name' => 'Airtel Money'],
+                                    'airtel' => ['file' => 'airtel.png', 'name' => 'Airtel Money'],
+                                    'airtelmoney' => ['file' => 'airtel.png', 'name' => 'Airtel Money'],
                                     'bank' => ['file' => 'equity.png', 'name' => 'Equity Bank'],
                                     'equity' => ['file' => 'equity.png', 'name' => 'Equity Bank']
                                 ];

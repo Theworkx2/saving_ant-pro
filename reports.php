@@ -12,7 +12,7 @@ if (!$auth->hasRole('admin') && !$auth->hasRole('manager')) {
 $user = $auth->getUser();
 
 // Get filter parameters
-$startDate = filter_input(INPUT_GET, 'start_date') ?? date('Y-m-01'); // Default to first day of current month
+$startDate = filter_input(INPUT_GET, 'start_date') ?? '2020-01-01'; // Default to a past date to show all transactions
 $endDate = filter_input(INPUT_GET, 'end_date') ?? date('Y-m-d'); // Default to today
 $paymentMethod = filter_input(INPUT_GET, 'payment_method');
 
@@ -27,11 +27,11 @@ try {
             SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END) as total_deposits,
             SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END) as total_withdrawals
         FROM transactions 
-        WHERE created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
+        WHERE user_id = ? AND created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
         " . ($paymentMethod ? "AND payment_method = ?" : "")
     );
     
-    $params = [$startDate, $endDate];
+    $params = [$user['id'], $startDate, $endDate];
     if ($paymentMethod) {
         $params[] = $paymentMethod;
     }
@@ -47,12 +47,12 @@ try {
             SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END) as total_deposits,
             SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END) as total_withdrawals
         FROM transactions 
-        WHERE created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
+        WHERE user_id = ? AND created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
         GROUP BY payment_method
         ORDER BY transaction_count DESC
     ");
     
-    $stmt->execute([$startDate, $endDate]);
+    $stmt->execute([$user['id'], $startDate, $endDate]);
     $paymentMethodStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Daily transactions
@@ -63,7 +63,7 @@ try {
             SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END) as daily_withdrawals,
             COUNT(*) as transaction_count
         FROM transactions 
-        WHERE created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
+        WHERE user_id = ? AND created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
         " . ($paymentMethod ? "AND payment_method = ?" : "") . "
         GROUP BY DATE(created_at)
         ORDER BY date DESC
@@ -106,48 +106,6 @@ try {
             background: var(--bg);
             color: #0b2240;
             line-height: 1.5;
-        }
-        .navbar {
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(11,95,255,0.1);
-            padding: 12px 24px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-        }
-        .navbar-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-        .logo {
-            font-weight: 600;
-            font-size: 20px;
-            color: var(--dark);
-        }
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-        }
-        .nav-links a {
-            color: #18314d;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .nav-links a:hover {
-            color: var(--primary);
         }
         .container {
             max-width: 1200px;
@@ -271,26 +229,9 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="navbar-content">
-            <a href="dashboard.php" class="brand">
-                <span class="logo">Saving Ant</span>
-            </a>
-            
-            <div class="nav-links">
-                <a href="dashboard.php">Dashboard</a>
-                <?php if ($auth->hasRole('admin')): ?>
-                    <a href="users.php">User Management</a>
-                <?php endif; ?>
-                <?php if ($auth->hasRole('admin') || $auth->hasRole('manager')): ?>
-                    <a href="reports.php">Reports</a>
-                <?php endif; ?>
-                <a href="transactions.php">Transactions</a>
-            </div>
-        </div>
-    </nav>
+    <?php include_once __DIR__ . '/inc/sidebar.php'; ?>
 
-    <main class="container">
+    <main class="main-content">
         <h1 class="page-title">Financial Reports</h1>
 
         <!-- Filters -->
@@ -369,7 +310,15 @@ try {
                         <?php foreach ($paymentMethodStats as $stat): ?>
                             <tr>
                                 <td>
-                                    <img src="images/<?= strtolower($stat['payment_method']) ?>.png" 
+                                    <?php
+                                    $paymentImages = [
+                                        'momo' => 'momo.png',
+                                        'airtel' => 'airtel.png',
+                                        'bank' => 'equity.png'
+                                    ];
+                                    $imageName = $paymentImages[strtolower($stat['payment_method'])] ?? 'momo.png';
+                                    ?>
+                                    <img src="images/<?= $imageName ?>" 
                                          alt="<?= htmlspecialchars($stat['payment_method']) ?>"
                                          style="height: 20px; vertical-align: middle; margin-right: 8px;">
                                     <?= ucfirst(htmlspecialchars($stat['payment_method'])) ?>
