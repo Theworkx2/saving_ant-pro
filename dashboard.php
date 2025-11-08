@@ -227,40 +227,58 @@ $user = $auth->getUser();
                 <div class="card-header">
                     <h3>Your Balance</h3>
                 </div>
-                <div class="stat">$1,234.56</div>
+                <div class="stat">RWF <?= number_format(getUserBalance($user['id']), 0) ?></div>
                 <div class="stat-label">Current balance</div>
             </div>
 
             <?php if ($auth->hasRole('admin')): ?>
             <!-- Admin-only card -->
+            <?php
+            $stmt = $auth->getPdo()->query('SELECT COUNT(*) FROM users WHERE is_active = 1');
+            $activeUsers = $stmt->fetchColumn();
+            ?>
             <div class="card">
                 <div class="card-header">
                     <h3>System Status</h3>
                     <span class="badge badge-admin">Admin</span>
                 </div>
-                <div class="stat">127</div>
+                <div class="stat"><?= number_format($activeUsers) ?></div>
                 <div class="stat-label">Active users</div>
             </div>
             <?php endif; ?>
 
             <?php if ($auth->hasRole('manager')): ?>
             <!-- Manager card -->
+            <?php
+            $stmt = $auth->getPdo()->prepare('SELECT COUNT(*) FROM users u 
+                INNER JOIN user_roles ur ON u.id = ur.user_id 
+                INNER JOIN roles r ON ur.role_id = r.id 
+                WHERE r.name = "user" AND u.is_active = 1');
+            $stmt->execute();
+            $activeUsers = $stmt->fetchColumn();
+            ?>
             <div class="card">
                 <div class="card-header">
-                    <h3>Department Overview</h3>
+                    <h3>User Overview</h3>
                     <span class="badge badge-manager">Manager</span>
                 </div>
-                <div class="stat">45</div>
-                <div class="stat-label">Team members</div>
+                <div class="stat"><?= number_format($activeUsers) ?></div>
+                <div class="stat-label">Active regular users</div>
             </div>
             <?php endif; ?>
 
             <!-- Regular user card -->
+            <?php
+            $startOfMonth = date('Y-m-01 00:00:00');
+            $stmt = $auth->getPdo()->prepare('SELECT COUNT(*) FROM transactions WHERE user_id = ? AND created_at >= ?');
+            $stmt->execute([$user['id'], $startOfMonth]);
+            $transactionsThisMonth = $stmt->fetchColumn();
+            ?>
             <div class="card">
                 <div class="card-header">
                     <h3>Recent Activity</h3>
                 </div>
-                <div class="stat">12</div>
+                <div class="stat"><?= number_format($transactionsThisMonth) ?></div>
                 <div class="stat-label">Transactions this month</div>
             </div>
         </div>

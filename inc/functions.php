@@ -19,8 +19,14 @@ function createTransaction(array $data): array {
         $currentBalance = getUserBalance($data['user_id']);
         $amount = floatval($data['amount']);
         
-        if ($data['type'] === 'withdrawal' && $currentBalance < $amount) {
-            throw new Exception('Insufficient balance');
+        if ($data['type'] === 'withdrawal') {
+            if ($amount > $currentBalance) {
+                throw new Exception('Cannot withdraw RWF ' . number_format($amount) . '. Available balance: RWF ' . number_format($currentBalance));
+            }
+            // Ensure balance never goes below 0
+            if ($currentBalance - $amount < 0) {
+                $amount = $currentBalance; // Only allow withdrawing what's available
+            }
         }
         
         // Calculate new balance based on all transactions including this one
@@ -114,12 +120,13 @@ function getUserBalance(int $userId): float {
     $stmt->execute([$userId]);
     $balance = $stmt->fetchColumn();
     
-    // If no balance found or balance is null, recalculate
-    if ($balance === false || $balance === null) {
-        return recalculateBalance($userId);
+    // If no balance found or balance is null or negative, recalculate
+    if ($balance === false || $balance === null || $balance < 0) {
+        $balance = recalculateBalance($userId);
     }
     
-    return floatval($balance);
+    // Ensure balance is never negative
+    return max(0, floatval($balance));
 }
 
 function getTransactions(array $params): array {
