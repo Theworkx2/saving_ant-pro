@@ -1,0 +1,77 @@
+.delete-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.delete-dialog-content {
+    background: white;
+    padding: 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+    width: 90%;
+    animation: slideIn 0.3s ease;
+}
+
+.delete-dialog h3 {
+    margin: 0 0 16px 0;
+    color: #06326B;
+    font-size: 20px;
+}
+
+.delete-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0;
+    color: #bf8c0c;
+    font-size: 14px;
+    background: rgba(191,140,12,0.1);
+    padding: 12px;
+    border-radius: 6px;
+}
+
+.delete-warning .material-icons {
+    font-size: 20px;
+}
+
+.delete-dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.delete-dialog .btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+}
+
+.delete-dialog .btn-danger {
+    background: #db3737;
+    color: white;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

@@ -1,0 +1,38 @@
+# IDE and Editor files
+.vscode/
+.idea/
+*.sublime-*
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PHP specific
+vendor/
+composer.lock
+.env
+
+# Logs and databases
+*.log
+*.sqlite
+*.sql
+
+# Keep setup/database.sql as it's needed for installation
+!setup/database.sql
+
+# Cache and temporary files
+*.tmp
+*.temp
+cache/
+temp/
+
+# Configuration files with sensitive data
+config.php
+db.php

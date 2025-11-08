@@ -1,0 +1,142 @@
+<?php
+require_once __DIR__ . '\inc\functions.php';
+
+// Require admin role
+requireRole('admin');
+
+// Get current user data
+$user = $auth->getUser();
+
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Set JSON header for AJAX requests
+    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
+        header('Content-Type: application/json');
+    }
+    
+    // Validate CSRF token
+    if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
+        if (isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+            echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+            exit;
+        } else {
+            setFlash('error', 'Invalid CSRF token');
+            redirect('/saving_ant/users.php');
+        }
+    }
+
+    $action = $_POST['action'] ?? '';
+    $response = ['success' => false, 'message' => 'Unknown action'];
+    
+    try {
+        switch ($action) {
+            case 'add_user':
+                if (empty($_POST['username']) || empty($_POST['email']) || empty($_POST['password']) || empty($_POST['full_name'])) {
+                    throw new Exception('All fields are required');
+                }
+
+                $result = $auth->createUser([
+                    'username' => $_POST['username'],
+                    'email' => $_POST['email'],
+                    'password' => $_POST['password'],
+                    'full_name' => $_POST['full_name'],
+                    'roles' => $_POST['roles'] ?? ['user']
+                ]);
+                
+                if (!$result['success']) {
+                    throw new Exception($result['message'] ?? 'Failed to create user');
+                }
+                
+                $response = [
+                    'success' => true,
+                    'message' => 'User created successfully'
+                ];
+                break;
+
+            case 'edit_user':
+                $userId = filter_var($_POST['user_id'], FILTER_VALIDATE_INT);
+                if (!$userId) {
+                    throw new Exception('Invalid user ID');
+                }
+
+                $data = [
+                    'username' => $_POST['username'] ?? '',
+                    'email' => $_POST['email'] ?? '',
+                    'full_name' => $_POST['full_name'] ?? ''
+                ];
+                
+                if (!empty($_POST['password'])) {
+                    $data['password'] = $_POST['password'];
+                }
+                
+                if (!$auth->updateUser($userId, $data)) {
+                    throw new Exception('Failed to update user');
+                }
+                
+                $response = [
+                    'success' => true,
+                    'message' => 'User updated successfully'
+                ];
+                break;
+
+            case 'update_roles':
+                $userId = filter_var($_POST['user_id'], FILTER_VALIDATE_INT);
+                if (!$userId) {
+                    throw new Exception('Invalid user ID');
+                }
+
+                $roles = $_POST['roles'] ?? [];
+                if (empty($roles)) {
+                    throw new Exception('User must have at least one role');
+                }
+                
+                if (!$auth->updateUserRoles($userId, $roles)) {
+                    throw new Exception('Failed to update user roles');
+                }
+                
+                $response = [
+                    'success' => true,
+                    'message' => 'User roles updated successfully'
+                ];
+                break;
+
+            case 'toggle_status':
+                $userId = filter_var($_POST['user_id'], FILTER_VALIDATE_INT);
+                if (!$userId) {
+                    throw new Exception('Invalid user ID');
+                }
+
+                $status = filter_var($_POST['status'], FILTER_VALIDATE_INT);
+                
+                if ($userId === $user['id']) {
+                    throw new Exception('You cannot deactivate your own account');
+                }
+                
+                if (!$auth->updateUserStatus($userId, $status)) {
+                    throw new Exception('Failed to update user status');
+                }
+                
+                $response = [
+                    'success' => true,
+                    'message' => $status ? 'User activated successfully' : 'User deactivated successfully'
+                ];
+                break;
+        }
+    } catch (Exception $e) {
+        $response = [
+            'success' => false,
+            'message' => $e->getMessage()
+        ];
+    }
+    
+    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
+        echo json_encode($response);
+        exit;
+    } else {
+        setFlash($response['success'] ? 'success' : 'error', $response['message']);
+        redirect('/saving_ant/users.php');
+    }
+}
+
+// Get all users for display
+$users = $auth->getAllUsers();
