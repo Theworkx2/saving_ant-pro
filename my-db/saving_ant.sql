@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 08, 2025 at 10:48 AM
+-- Generation Time: Nov 08, 2025 at 08:12 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -81,7 +81,9 @@ CREATE TABLE `transactions` (
 --
 
 INSERT INTO `transactions` (`id`, `user_id`, `type`, `amount`, `description`, `balance`, `created_at`, `payment_method`) VALUES
-(26, 4, 'deposit', 14333204.00, 'travel', 0.00, '2025-11-08 09:06:01', 'airtel');
+(43, 8, 'deposit', 74800.00, 'saving', 74800.00, '2025-11-08 16:27:56', 'momo'),
+(44, 9, 'deposit', 5000.00, 'saving ', 5000.00, '2025-11-08 16:55:36', 'momo'),
+(46, 8, 'withdrawal', 10000.00, 'test', 64800.00, '2025-11-08 18:48:55', 'bank');
 
 -- --------------------------------------------------------
 
@@ -98,18 +100,18 @@ CREATE TABLE `users` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `last_login` timestamp NULL DEFAULT NULL,
-  `is_active` tinyint(1) DEFAULT 1
+  `is_active` tinyint(1) DEFAULT 1,
+  `phone_number` varchar(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `full_name`, `created_at`, `updated_at`, `last_login`, `is_active`) VALUES
-(1, 'admin', 'admin@saving-ant.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System Administrator', '2025-11-07 18:34:56', '2025-11-07 19:42:05', NULL, 0),
-(2, 'test', 'test@gmail.com', '$2y$10$umoASyIYDOjGFRx6PJrugudunJjy5BPQLpOkolKYRUYPeWNBHnnXC', 'test', '2025-11-07 18:46:05', '2025-11-07 19:41:58', '2025-11-07 19:11:38', 0),
-(4, 'elisa', 'elisa@gmail.com', '$2y$10$TT1TSX0WITcLmoKs0Dx88OS4JXpPGZMNF6qGygZju1ID2Bs69oIMu', 'elisa', '2025-11-07 19:12:46', '2025-11-08 08:25:42', '2025-11-08 08:25:42', 1),
-(5, 'rugwiro', 'rugwiro@gmail.com', '$2y$10$F9viMnINs/2D/FFUHn11OO.O2mmIjb.0E0HcSzgt5HNZr3R3vIM6y', 'rugwiro', '2025-11-07 19:52:22', '2025-11-07 19:56:55', '2025-11-07 19:56:55', 1);
+INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `full_name`, `created_at`, `updated_at`, `last_login`, `is_active`, `phone_number`) VALUES
+(4, 'superadmin', 'superadmin@gmail.com', '$2y$10$hVe44.caIKZ0yUvhwObfZu2MUVEACSg.nb2UJswZet2nAg7VcwQfq', 'superadmin', '2025-11-07 19:12:46', '2025-11-08 19:02:33', '2025-11-08 19:02:33', 1, '+250 781461323'),
+(8, 'admin', 'David@gmail.com', '$2y$10$XIWTq5kHubavsRfVVNmFeOX3IHjXTc/poGhd1zZfhwPZn5fP.st9i', 'Byiringiro David', '2025-11-08 16:26:01', '2025-11-08 19:00:30', '2025-11-08 18:53:58', 1, ''),
+(9, 'Rugwiro', 'elisharugwiro@gmail.com', '$2y$10$Vz3DoD3YFSumVefoboTivO7tchVcYBUi4z.F8HhZtV9oXYnaFjOxu', 'Rugwiro Elisa', '2025-11-08 16:52:59', '2025-11-08 16:59:31', '2025-11-08 16:59:31', 1, NULL);
 
 -- --------------------------------------------------------
 
@@ -128,7 +130,9 @@ CREATE TABLE `user_balances` (
 --
 
 INSERT INTO `user_balances` (`user_id`, `balance`, `updated_at`) VALUES
-(4, -10000000.00, '2025-11-08 09:06:06');
+(4, 0.00, '2025-11-08 17:10:50'),
+(8, 64800.00, '2025-11-08 18:48:55'),
+(9, 5000.00, '2025-11-08 16:55:36');
 
 -- --------------------------------------------------------
 
@@ -148,10 +152,10 @@ CREATE TABLE `user_roles` (
 --
 
 INSERT INTO `user_roles` (`user_id`, `role_id`, `assigned_at`, `assigned_by`) VALUES
-(1, 1, '2025-11-07 18:34:56', NULL),
-(2, 3, '2025-11-07 18:46:05', NULL),
 (4, 1, '2025-11-07 19:12:46', NULL),
-(5, 2, '2025-11-07 19:52:22', NULL);
+(8, 1, '2025-11-08 19:00:30', NULL),
+(8, 2, '2025-11-08 16:26:01', NULL),
+(9, 3, '2025-11-08 16:52:59', NULL);
 
 --
 -- Indexes for dumped tables
@@ -212,7 +216,7 @@ ALTER TABLE `user_roles`
 -- AUTO_INCREMENT for table `roles`
 --
 ALTER TABLE `roles`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `transactions`
@@ -224,7 +228,7 @@ ALTER TABLE `transactions`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- Constraints for dumped tables

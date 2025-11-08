@@ -1,11 +1,15 @@
 <?php
-require_once __DIR__ . '\inc\functions.php';
+require_once __DIR__ . '/inc/functions.php';
+require_once __DIR__ . '/inc/get_transaction_stats.php';
 
 // Require login for dashboard
 requireAuth();
 
 // Get current user data
 $user = $auth->getUser();
+
+// Get transaction statistics
+$stats = getTransactionStats($user['id']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -185,6 +189,39 @@ $user = $auth->getUser();
             font-size: 20px;
         }
 
+        .stat-details {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e6eefb;
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stat-item .amount {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .stat-item .amount.success {
+            color: var(--success);
+        }
+
+        .stat-item .amount.danger {
+            color: #EF4444;
+        }
+
+        .stat-item .label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 padding: 16px;
@@ -227,8 +264,18 @@ $user = $auth->getUser();
                         <i class="material-icons">account_balance_wallet</i>
                     </div>
                     <div>
-                        <div class="stat">RWF <?= number_format(getUserBalance($user['id']), 0) ?></div>
+                        <div class="stat">RWF <?= number_format($stats['total_balance'], 0) ?></div>
                         <div class="stat-label">Total Savings</div>
+                    </div>
+                </div>
+                <div class="stat-details">
+                    <div class="stat-item">
+                        <span class="amount success">+RWF <?= number_format($stats['today']['deposits'], 0) ?></span>
+                        <span class="label">Today's Deposits</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="amount danger">-RWF <?= number_format($stats['today']['withdrawals'], 0) ?></span>
+                        <span class="label">Today's Withdrawals</span>
                     </div>
                 </div>
             </div>
@@ -288,8 +335,8 @@ $user = $auth->getUser();
                         <i class="material-icons">sync_alt</i>
                     </div>
                     <div>
-                        <div class="stat"><?= number_format($transactionsThisMonth) ?></div>
-                        <div class="stat-label">Pending Transactions</div>
+                        <div class="stat"><?= number_format($stats['today']['count']) ?></div>
+                        <div class="stat-label">Today's Transactions</div>
                     </div>
                 </div>
             </div>
@@ -300,16 +347,8 @@ $user = $auth->getUser();
             <div class="card-header">
                 <h3>Recent Transactions</h3>
             </div>
-            <?php
-            $stmt = $auth->getPdo()->prepare('
-                SELECT t.*, u.full_name, u.id as user_id 
-                FROM transactions t 
-                JOIN users u ON t.user_id = u.id 
-                WHERE t.user_id = ? 
-                ORDER BY t.created_at DESC LIMIT 5
-            ');
-            $stmt->execute([$user['id']]);
-            $transactions = $stmt->fetchAll();
+            <?php 
+            $transactions = $stats['recent_transactions'];
             ?>
             <div class="transactions-list">
                 <?php foreach ($transactions as $t): ?>
